@@ -2,7 +2,8 @@
 import os
 import re
 
-class parser:
+
+class Parser:
     outputdir = "output"
 
     def split(self, filename, chunksize=4024):
@@ -14,9 +15,9 @@ class parser:
             if not chunk and not rest:
                 break
 
-            parts = re.split("\[PubMed -.*?\]", (rest+chunk)) #split('[PubMed -')# indexed for MEDLINE]\n\n')
+            parts = re.split("\[PubMed -.*?\]", (rest+chunk))
             length = len(parts)
-            if(length >= 2):
+            if length >= 2:
                 r = range(0, length-1)
             else:
                 r = range(0, length)
@@ -35,7 +36,7 @@ class parser:
                     newPub.write(block[l-2])
                     newPub.close()
                     print(pmid)
-            if(length > 1):
+            if length > 1:
                 rest = parts[length-1]
             else:
                 rest = ""

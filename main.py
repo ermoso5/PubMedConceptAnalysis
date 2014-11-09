@@ -1,5 +1,5 @@
 from preprocessor import Preprocessor
-from parser import parser
+from parser import Parser
 from graph import Graph
 
 DEBUG = True
@@ -7,7 +7,7 @@ DEBUG = True
 def main():
    
     #parsing
-    par = parser()
+    par = Parser()
     par.split(filename="corpus/test_corpus.txt")
     
     #preprocessing
