@@ -1,5 +1,5 @@
 from preprocessor import Preprocessor
-from parser import Parser
+from data import Parser
 from graph import Graph
 
 DEBUG = True
