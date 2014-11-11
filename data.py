@@ -1,10 +1,10 @@
-
 import os
 import re
 from chardet import detect
 
 class Parser:
-    outputdir = "output"
+    def __init__(self, outputdir):
+        self.outputdir = outputdir
 
     def split(self, filename, chunksize=4024):
         rest = ''
@@ -38,11 +38,12 @@ class Parser:
                 except:
                     pmid = "not_found_in_"+''.join(block[0][0:skipIndex])
 
-                year_dir = self.outputdir + "/" + year
+                year_dir =  os.path.join(self.outputdir, year)
+
                 if not os.path.exists(year_dir):
                     os.makedirs(year_dir)
 
-                with open(year_dir+ "/"+pmid+".txt","w+") as newPub:
+                with open(os.path.join(year_dir, pmid+".txt"),"w+") as newPub:
                     newPub.write(block[l-2])
                     newPub.close()
                     count+=1
@@ -54,4 +55,4 @@ class Parser:
 
 
 #usage
-# parser().split("corpus/test_corpus.txt")
+# parser("corpus/output").split("corpus/test_corpus.txt")
