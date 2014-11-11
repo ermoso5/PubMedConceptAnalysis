@@ -1,21 +1,23 @@
-# -*- coding: ISO-8859-1 -*-
 import os
 import re
-
+from chardet import detect
 
 class Parser:
-    outputdir = "output"
+    def __init__(self, outputdir):
+        self.outputdir = outputdir
 
     def split(self, filename, chunksize=4024):
         rest = ''
-        file = open(filename)
+        file = open(filename, encoding="utf-8")
+        count=0
 
         while 1:
             chunk = file.read(chunksize)
+
             if not chunk and not rest:
                 break
 
-            parts = re.split("\[PubMed -.*?\]", (rest+chunk))
+            parts = re.split("\[PubMed.*?\]", (rest+chunk))
             length = len(parts)
             if length >= 2:
                 r = range(0, length-1)
@@ -26,16 +28,26 @@ class Parser:
                 block = parts[i].strip().split('\n\n')
                 l = len(block)
                 skipIndex = block[0].find('.')
-                year = re.search(r'\d{4}', block[0][skipIndex:]).group()
-                pmid = (re.search(r'PMID: [\d]+', block[l-1]).group())[6:]
-                year_dir = self.outputdir + "/" + year
+                str = ' '.join(block[0:l-2])
+                try:
+                    year = re.search(r'\d{4}', str[skipIndex:]).group()
+                except:
+                    year = "unknown"
+                try:
+                    pmid = (re.search(r'PMID: [\d]+', block[l-1]).group())[6:]
+                except:
+                    pmid = "not_found_in_"+''.join(block[0][0:skipIndex])
+
+                year_dir =  os.path.join(self.outputdir, year)
+
                 if not os.path.exists(year_dir):
                     os.makedirs(year_dir)
 
-                with open(year_dir+ "/"+pmid+".txt","w+") as newPub:
+                with open(os.path.join(year_dir, pmid+".txt"),"w+") as newPub:
                     newPub.write(block[l-2])
                     newPub.close()
-                    print(pmid)
+                    count+=1
+                    print(count)
             if length > 1:
                 rest = parts[length-1]
             else:
@@ -43,4 +55,4 @@ class Parser:
 
 
 #usage
-# parser().split("corpus/test_corpus.txt")
+# parser("corpus/output").split("corpus/test_corpus.txt")
