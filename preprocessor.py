@@ -10,11 +10,13 @@ Auxiliary functions are:
     stemText(text, intensity)
     removeStopwords(text, min_word_length)
     removeDuplicates(text)
-    removeNumbers(text):
+    removeNumbers(text)
+    ner(string)
 """
 
 import os
 import time
+import requests
 
 from nltk import stem
 
@@ -56,7 +58,7 @@ class Preprocessor(object):
         self.prefixes = PREFIXES    #currently prefixes are not used
         
     
-    def processFolder(self, root="corpus", target="processed", stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False):
+    def processFolder(self, root="corpus", target="processed", stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False, ner=False):
         """
         Creates a target folder and related subdirectories according to the structure of the root folder. 
         Then, processes all the textual files in the root structure and store the results in the target structure.
@@ -67,6 +69,7 @@ class Preprocessor(object):
         :min_word_length    Minimum number of characters for a word to be kept. 
         :remove_numbers     Remove lonely numbers. Keep numbers when together with characters.  
         :remove_duplicates  Remove the duplicates from the text.
+        :ner                Use named entity recognition.
         :return             None
         """
         if not os.path.isdir(root):
@@ -86,13 +89,13 @@ class Preprocessor(object):
                 for file in os.listdir(dir_origin):     #open textual files under year folder and process them
                     if file.endswith(".txt"):               
                         string = self.fileToString(os.path.join(dir_origin, file))        #put file into string
-                        string = self.processString(string, stemming, min_word_length)
+                        string = self.processString(string, stemming, min_word_length, remove_numbers, remove_duplicates, ner)
                         if DEBUG:
                             print(string)                                                 #display the results
                         self.stringToFile(os.path.join(dir_dest, file), string)           #save string to file
                         
 
-    def processString(self, string, stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False):
+    def processString(self, string, stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False, ner=False):
         """ 
         Apply prerpocessing to a string. 
         :stemming           Choose whether or not applying stemming. It may be None, 'light', 'medium', 'heavy'. 
@@ -110,6 +113,8 @@ class Preprocessor(object):
             string = self.removeDuplicates(string)                  #remove duplicate words
         if remove_numbers:
             string = self.removeNumbers(string)                     #remove numbers
+        if ner:
+            string = self.NER(string)
         string = string.strip()                                     #remove trailing spaces
         return string
 
@@ -182,6 +187,19 @@ class Preprocessor(object):
         result = [word for word in bow if not word.isdigit()]
         return ' '.join(result)
     
+    
+    def NER(text):
+        """Apply Named Entity Recognition from Stanford's web service ADEPTA."""
+        ADEPT_url="http://dust.stanford.edu:8080/ADEPTRest/rest/annotate"
+        payload = {"adeptifyThis" : text}
+        data=requests.post(ADEPT_url, data=payload)
+        result = []
+        for row in data[0]["tokens"]:
+            if row["label"] == "MEDTERM":
+                result.append(row["token"])
+                #print(row["token"])
+        #print(r.text)
+        return ' '.join(result)
     
 if __name__=="__main__":
     pp = preprossor()

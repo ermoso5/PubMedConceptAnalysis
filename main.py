@@ -17,10 +17,8 @@ def main():
                      stemming='heavy', 
                      min_word_length=8, 
                      remove_duplicates=True, 
-                     remove_numbers=True)
-
-    #named entity recognition goes here
-    #TODO
+                     remove_numbers=True,
+                     ner=True)
     
     #create graph here
     g = Graph(graph_name="graph1")
