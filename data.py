@@ -47,7 +47,7 @@ class Parser:
                     newPub.write(block[l-2])
                     newPub.close()
                     count+=1
-                    print(count)
+                    #print(count)
             if length > 1:
                 rest = parts[length-1]
             else:

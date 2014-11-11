@@ -17,6 +17,7 @@ Auxiliary functions are:
 import os
 import time
 import requests
+import json
 
 from nltk import stem
 
@@ -188,18 +189,19 @@ class Preprocessor(object):
         return ' '.join(result)
     
     
-    def NER(text):
+    def NER(self, text):
         """Apply Named Entity Recognition from Stanford's web service ADEPTA."""
         ADEPT_url="http://dust.stanford.edu:8080/ADEPTRest/rest/annotate"
         payload = {"adeptifyThis" : text}
-        data=requests.post(ADEPT_url, data=payload)
+        r=requests.post(ADEPT_url, data=payload)
+        data = json.loads(r.text)
         result = []
         for row in data[0]["tokens"]:
             if row["label"] == "MEDTERM":
                 result.append(row["token"])
-                #print(row["token"])
-        #print(r.text)
+                print(row["token"])
         return ' '.join(result)
+    
     
 if __name__=="__main__":
     pp = preprossor()
