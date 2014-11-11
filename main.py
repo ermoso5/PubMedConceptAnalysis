@@ -1,3 +1,5 @@
+import os
+
 from preprocessor import Preprocessor
 from data import Parser
 from graph import Graph
@@ -6,19 +8,21 @@ DEBUG = True
 
 def main():
    
+    corpus_file = os.path.join("corpus", "test_corpus.txt")
+   
     #parsing
     par = Parser("corpus")
-    par.split(filename="corpus/test_corpus.txt")
+    par.split(filename=corpus_file)
     
     #preprocessing
     pp = Preprocessor()
     pp.processFolder(root="corpus", 
                      target="processed", 
-                     stemming='heavy', 
-                     min_word_length=8, 
+                     stemming='light', 
+                     min_word_length=5, 
                      remove_duplicates=True, 
                      remove_numbers=True,
-                     ner=True)
+                     ner=False)
     
     #create graph here
     g = Graph(graph_name="graph1")
