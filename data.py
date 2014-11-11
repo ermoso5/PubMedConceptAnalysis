@@ -1,6 +1,5 @@
 import os
 import re
-from chardet import detect
 
 class Parser:
     def __init__(self, outputdir):
@@ -8,7 +7,7 @@ class Parser:
 
     def split(self, filename, chunksize=4024):
         rest = ''
-        file = open(filename, encoding="utf-8")
+        file = open(filename)
         count=0
 
         while 1:
@@ -43,11 +42,11 @@ class Parser:
                 if not os.path.exists(year_dir):
                     os.makedirs(year_dir)
 
-                with open(os.path.join(year_dir, pmid+".txt"),"w+") as newPub:
+                with open(os.path.join(year_dir, pmid+".txt"),"w+", encoding="utf-8") as newPub:
                     newPub.write(block[l-2])
                     newPub.close()
                     count+=1
-                    #print(count)
+                    print(count)
             if length > 1:
                 rest = parts[length-1]
             else:
