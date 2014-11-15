@@ -1,14 +1,15 @@
 """
 This class provides the preprocessing functions for the PubMed corpus:
-    processFolder(root, target, stemming, min_word_length, remove_numbers, remove_duplicates)
-    processString(string, stemming, min_word_length, remove_numbers, remove_duplicates)
+    processFolder(root, target, stemming, min_word_length, remove_numbers, remove_duplicates, ner)
+    processString(string, stemming, min_word_length, remove_numbers, remove_duplicates, ner)
     
 Auxiliary functions are:    
     fileToString(file_path)
-    stringToFile(file_path, text)
-    removePunctuation(text)
+    stringToFile(file_path, text)    
     stemText(text, intensity)
-    removeStopwords(text, min_word_length)
+    removeShortWords(text, min_word_length)
+    removePunctuation(text)
+    removeStopwords(text)
     removeDuplicates(text)
     removeNumbers(text)
     ner(string)
@@ -32,17 +33,20 @@ EXCLUDE = ['!', '?', '.', ',', ':', ';', '_', '-', '+', '*', '/', '\\', '^',
 "'", '"', '’' , '(', ')', '[', ']', '=', '°', '|', '{', '}', '\n', '\t',
 '%', '¡', '¨', '“', '”', '`', '<', '>', '$', '&', '@', '#', '°']
 
-STOP_WORDS = ['a','able','about','across','after','all','almost','also','am','among',
-'an','and','any','are','as','at','be','because','been','but','by','can',
-'cannot','could','dear','did','do','does','either','else','ever','every',
-'for','from','get','got','had','has','have','he','her','hers','him','his',
-'how','however','i','if','in','into','is','it','its','just','least','let',
-'like','likely','may','me','might','most','must','my','neither','no','nor',
-'not','of','off','often','on','only','or','other','our','own','rather','said',
-'say','says','she','should','since','so','some','than','that','the','their',
-'them','then','there','these','they','this','those','to','too','thus','us',
-'wants','was','we','were','what','when','where','which','while','who',
-'whom','why','will','with','would','yet','you','your']
+STOP_WORDS = ['a', 'able', 'about', 'above', 'across', 'after', 'again', 'against', 'all', 'almost', 
+'also', 'am', 'among', 'an', 'and', 'any', 'are', 'as', 'at', 'be', 'because', 'been', 'before', 
+'being', 'below', 'between', 'both', 'but', 'by', 'can', 'cannot', 'could', 'dear', 'did', 'do', 
+'does', 'doing', 'don', 'down', 'during', 'each', 'either', 'else', 'ever', 'every', 'few', 'for', 
+'from', 'further', 'get', 'got', 'had', 'has', 'have', 'having', 'he', 'her', 'here', 'hers', 
+'herself', 'him', 'himself', 'his', 'how', 'however', 'i', 'if', 'in', 'into', 'is', 'it', 'its', 
+'itself', 'just', 'least', 'let', 'like', 'likely', 'may', 'me', 'might', 'more', 'most', 'must', 
+'my', 'myself', 'neither', 'no', 'nor', 'not', 'now', 'of', 'off', 'often', 'on', 'once', 'only', 
+'or', 'other', 'our', 'ours', 'ourselves', 'out', 'over', 'own', 'rather', 's', 'said', 'same', 
+'say', 'says', 'she', 'should', 'since', 'so', 'some', 'such', 't', 'than', 'that', 'the', 'their', 
+'theirs', 'them', 'themselves', 'then', 'there', 'these', 'they', 'this', 'those', 'through', 'thus', 
+'to', 'too', 'under', 'until', 'up', 'us', 'very', 'wants', 'was', 'we', 'were', 'what', 'when', 
+'where', 'which', 'while', 'who', 'whom', 'why', 'will', 'with', 'would', 'yet', 'you', 'your', 
+'yours', 'yourself', 'yourselves']
 
 PREFIXES = ['von', 'de', 'vant', 'van', 'der', 'vom', 'vander', 'zur',
 'ten', 'la', 'du', 'ter', 'dos', 'al', 'del', 'st', 'le', 'dos', 'da', 
@@ -104,12 +108,15 @@ class Preprocessor(object):
         :remove_numbers     Remove lonely numbers. Keep numbers when together with characters.  
         :remove_duplicates  Remove the duplicates from the text.
         :return             Cleaned up string
+        :ner                Use named entity recognition.
         """
         string = string.lower()                                     #convert to lower case                           
         string = self.removePunctuation(string)                     #remove the punctuation in EXCLUDE
-        string = self.removeStopwords(string, min_word_length)      #remove the stopwords in STOP_WORDS
+        string = self.removeStopwords(string)                       #remove the stopwords in STOP_WORDS
         if stemming:
             string = self.stemText(string, intensity=stemming)      #perform stemming
+        if min_word_length > 0:
+            string = self.removeShortWords(string, min_word_length)  #remove short words
         if remove_duplicates:
             string = self.removeDuplicates(string)                  #remove duplicate words
         if remove_numbers:
@@ -136,6 +143,24 @@ class Preprocessor(object):
                 text_file.write(text)
 
 
+    def stemText(self, text, intensity):    
+        """Apply stemming to a string according to :intesity."""
+        #select nltk stemmer
+        if intensity is 'light':
+            s = stem.PorterStemmer()       
+        elif intensity is 'medium':
+            s = stem.snowball.EnglishStemmer()   
+        elif intensity is 'heavy':
+            s = stem.LancasterStemmer()
+        else:
+            raise Exception("'{0}' is not a correct intensity parameter. Must be light, medium or heavy.".format(intensity))
+        bow = text.split(" ")       #this creates a bag of words
+        result = []
+        for word in bow:
+            result.append(s.stem(word))
+        return ' '.join(result)
+
+
     def removePunctuation(self, text):
         """Remove the punctuation specified in EXCLUDE from the string."""
         new_text = ""
@@ -146,31 +171,23 @@ class Preprocessor(object):
                 new_text = new_text + c
         return ' '.join(new_text.split())       #this removes double spaces
         
-
-    def stemText(self, text, intensity='medium'):    
-        """Apply stemming to a string according to :intesity."""
-        #select nltk stemmer
-        if intensity is 'light':
-            s = stem.PorterStemmer()       
-        elif intensity is 'medium':
-            s = stem.snowball.EnglishStemmer()   
-        elif intensity is 'heavy':
-            s = stem.LancasterStemmer()
-        else:
-            return text
+        
+    def removeShortWords(self, text, min_word_length):
+        """Remove words that are shorter than :min_word_length."""
         bow = text.split(" ")       #this creates a bag of words
         result = []
         for word in bow:
-            result.append(s.stem(word))
+            if len(word)>=min_word_length:
+                result.append(word)
         return ' '.join(result)
 
 
-    def removeStopwords(self, text, min_word_length=1):
-        """Remove the stopwords specified in STOP_WORDS and the words shorter than :min_word_length."""
+    def removeStopwords(self, text):
+        """Remove the stopwords specified in STOP_WORDS."""
         bow = text.split(" ")       #this creates a bag of words
         result = []
         for word in bow:
-            if len(word)>=min_word_length and word not in self.stop_words:
+            if word not in self.stop_words:
                 result.append(word)
         return ' '.join(result)
         
