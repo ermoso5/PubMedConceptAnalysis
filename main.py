@@ -8,8 +8,8 @@ def main():
    
     #parsing
     par = Parser("corpus")
-    par.split(filename="corpus/test_corpus.txt")
-    
+    par.splitMedline(filename="corpus/small_medline.txt")
+
     #preprocessing
     pp = Preprocessor()
     pp.processFolder(root="corpus", 

@@ -7,7 +7,7 @@ class Parser:
 
     def split(self, filename, chunksize=4024):
         rest = ''
-        file = open(filename)
+        file = open(filename, encoding="utf-8")
         count=0
 
         while 1:
@@ -52,6 +52,61 @@ class Parser:
             else:
                 rest = ""
 
+    def splitMedline(self, filename, chunksize=4024):
+        rest = ''
+        file = open(filename, encoding="utf-8")
+        yearField = ['DP  -', 'DP -', 'DP-']
+        abstractField = ['AB  -', 'AB -', 'AB-']
+
+        while 1:
+            chunk = file.read(chunksize)
+            if not chunk and not rest:
+                break
+
+            docs = re.split("PMID-", (rest+chunk).strip())
+            length = len(docs)
+
+            field = re.compile(r'\n(\b\w{2,4}\b\s{0,2}-)')
+            for d in range(0, length-1):
+                doc = re.split(field, docs[d])
+
+                if not doc[0]:
+                    continue
+                pmid = doc[0].strip()
+
+                index = self.findOneOf(doc, abstractField)
+                if index == -1:
+                    continue
+                else:
+                    abstract = doc[index+1]
+
+                index = self.findOneOf(doc, yearField)
+                if index > -1:
+                    year = doc[index+1].strip()[0:4]
+                else:
+                    year = "unknown"
+                    print(docs[d])
+                    print("-------------------------")
+
+                year_dir = os.path.join(self.outputdir, year)
+
+                if not os.path.exists(year_dir):
+                    os.makedirs(year_dir)
+
+                with open(os.path.join(year_dir, pmid+".txt"),"w+", encoding="utf-8") as newPub:
+                    newPub.write(abstract)
+                    newPub.close()
+
+            if length > 1:
+                rest = docs[length-1]
+            else:
+                rest = ""
+
+    def findOneOf(self, list, listToFind):
+        for l in listToFind:
+            if l in list:
+                return list.index(l)
+        return -1
 
 #usage
-# parser("corpus/output").split("corpus/test_corpus.txt")
+#Parser("D:/corpus/output").splitMedline("C:/Users/Zara/Downloads/medline.txt")
