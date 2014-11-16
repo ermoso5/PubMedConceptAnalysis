@@ -1,28 +1,41 @@
+import time
+
+from dataparser import Parser
 from preprocessor import Preprocessor
-from data import Parser
 from graph import Graph
 
 DEBUG = True
 
-def main():
-   
-    #parsing
-    par = Parser("corpus")
-    par.splitMedline(filename="corpus/small_medline.txt")
-
-    #preprocessing
-    pp = Preprocessor()
-    pp.processFolder(root="corpus", 
-                     target="processed", 
-                     stemming='heavy', 
-                     min_word_length=8, 
-                     remove_duplicates=True, 
-                     remove_numbers=True,
-                     ner=True)
+def main(parsing=True, preprocessing=True, graph_from_folder=None):
+       
+    #STEP 1: parsing
+    if parsing:
+        start = time.clock()
+        par = Parser(outputdir="corpus")     
+        par.splitMedline(filename="small_medline.txt")
+        print("done in {0}s".format(time.clock()-start))
+        
+        
+    #STEP 2: preprocessing & building the graph
+    if preprocessing:
+        start = time.clock()
+        g = Graph(graph_name="graph1")
+        pp = Preprocessor()
+        pp.processFolder(root="corpus", 
+                         graph=g,               #pass the graph object
+                         target_folder=None,    #don't store intermediate files #"processed"
+                         stemming='heavy', 
+                         min_word_length=5, 
+                         remove_duplicates=True, 
+                         remove_numbers=True,
+                         ner=True)
+        print("done in {0}s".format(time.clock()-start))
     
-    #create graph here
-    g = Graph(graph_name="graph1")
-    g.makeFromFolder(root="processed")
+    #If needed you can build the graph from a folder
+    if graph_from_folder:
+        start = time.clock()
+        g.makeFromFolder(root=graph_from_folder)
+        print("done in {0}s".format(time.clock()-start))
     
     #debug 
     if DEBUG:

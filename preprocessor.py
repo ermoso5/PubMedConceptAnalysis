@@ -21,7 +21,8 @@ import requests
 import json
 
 from nltk import stem
-
+from adeptner import Adeptner
+from graph import Graph
 
 __author__ = "Marcello Bendetti"
 __status__ = "Prototype"
@@ -61,9 +62,15 @@ class Preprocessor(object):
         self.exclude = EXCLUDE
         self.stop_words = STOP_WORDS
         self.prefixes = PREFIXES    #currently prefixes are not used
-        
+        try:
+            self.ner = Adeptner()
+            self.ner_mode = 'offline'
+        except:
+            print("WARNING: you are using an online NER!")
+            self.ner_mode = 'online'
+            
     
-    def processFolder(self, root="corpus", target="processed", stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False, ner=False):
+    def processFolder(self, root="corpus", graph=None, target_folder=None, stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False, ner=False):
         """
         Creates a target folder and related subdirectories according to the structure of the root folder. 
         Then, processes all the textual files in the root structure and store the results in the target structure.
@@ -79,25 +86,35 @@ class Preprocessor(object):
         """
         if not os.path.isdir(root):
             raise Exception("'{0}' folder doesn't exist".format(root))
-        
-        if not os.path.isdir(target):       #create 'target' folder if it doesn't exist
-            os.mkdir(target)
+        if graph and not isinstance(graph, Graph):
+            raise Exception("The graph object is non valid")
+        if target_folder and not os.path.isdir(target_folder):       #create 'target' folder if it doesn't exist
+            os.mkdir(target_folder)            
             
+        print("...preprocessing documents")
+              
         for dir in os.listdir(root):                #visit year subdirectories of 'root' folder
-            dir_origin = os.path.join(root, dir)     
+            layer = dir                             #layer contains the year
+            dir_origin = os.path.join(root, dir)
             
             if os.path.isdir(dir_origin):
-                dir_dest = os.path.join(target, dir)
-                if not os.path.isdir(dir_dest):     #create year subfolders if they don't exist in 'target'
-                    os.mkdir(dir_dest)
+                if target_folder:
+                    dir_dest = os.path.join(target_folder, dir)
+                    if not os.path.isdir(dir_dest):             #create year subfolders if they don't exist in 'target' 
+                        os.mkdir(dir_dest)
        
-                for file in os.listdir(dir_origin):     #open textual files under year folder and process them
+                for file in os.listdir(dir_origin):             #open textual files under year folder and process them
                     if file.endswith(".txt"):               
                         string = self.fileToString(os.path.join(dir_origin, file))        #put file into string
                         string = self.processString(string, stemming, min_word_length, remove_numbers, remove_duplicates, ner)
+                        
                         if DEBUG:
-                            print(string)                                                 #display the results
-                        self.stringToFile(os.path.join(dir_dest, file), string)           #save string to file
+                            print(string)
+                            
+                        if graph:                               
+                            graph.addToGraph(string, layer)                                #add to graph 
+                        if target_folder:
+                            self.stringToFile(os.path.join(dir_dest, file), string)           #save string to file otherwise
                         
 
     def processString(self, string, stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False, ner=False):
@@ -122,7 +139,7 @@ class Preprocessor(object):
         if remove_numbers:
             string = self.removeNumbers(string)                     #remove numbers
         if ner:
-            string = self.NER(string)
+            string = self.getEntities(string)                       #perform named entity recognition 
         string = string.strip()                                     #remove trailing spaces
         return string
 
@@ -132,15 +149,17 @@ class Preprocessor(object):
         text = ""
         if file_path:
             with open(file_path, "r") as f:
-                text = f.read() #omit size to read all
+                text = f.read() #omit size to read it all
+                f.close()
         return text
      
      
     def stringToFile(self, file_path, text):
         """Take the content of a string and put it in a '.txt' file."""
         if file_path and text:
-            with open(file_path, "w") as text_file:
-                text_file.write(text)
+            with open(file_path, "w") as f:
+                f.write(text)
+                f.close()
 
 
     def stemText(self, text, intensity):    
@@ -206,19 +225,26 @@ class Preprocessor(object):
         return ' '.join(result)
     
     
-    def NER(self, text):
+    def getEntities(self, text):
         """Apply Named Entity Recognition from Stanford's web service ADEPTA."""
-        ADEPT_url="http://dust.stanford.edu:8080/ADEPTRest/rest/annotate"
-        payload = {"adeptifyThis" : text}
-        r=requests.post(ADEPT_url, data=payload)
-        data = json.loads(r.text)
-        result = []
-        for row in data[0]["tokens"]:
-            if row["label"] == "MEDTERM":
-                result.append(row["token"])
-                print(row["token"])
-        return ' '.join(result)
-    
+        if self.ner_mode == 'online':
+            ADEPT_url="http://dust.stanford.edu:8080/ADEPTRest/rest/annotate"
+            payload = {"adeptifyThis" : text}
+            r=requests.post(ADEPT_url, data=payload)
+            data = json.loads(r.text)
+            result = []
+            for row in data[0]["tokens"]:
+                if row["label"] == "MEDTERM":
+                    result.append(row["token"])
+                    print(row["token"])
+            return ' '.join(result)
+        else:
+            result = self.ner.getTerms(text).get('MEDTERM')
+            if result:
+                return ' '.join(result)
+            else:
+                return ''
+            
     
 if __name__=="__main__":
     pp = preprossor()

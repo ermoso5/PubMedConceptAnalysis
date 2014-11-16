@@ -44,7 +44,11 @@ class Graph(object):
     def makeFromFolder(self, root):
         if not os.path.isdir(root):
             raise Exception("'{0}' folder doesn't exist".format(root))
-     
+        
+        print("...building the graph")
+        count_nodes = 0 
+        count_edges = 0
+        
         for dir in os.listdir(root):                #visit year subdirectories of 'root' folder
             dir_origin = os.path.join(root, dir)
             
@@ -53,20 +57,27 @@ class Graph(object):
 
                 for file in os.listdir(dir_origin):        #open textual files under year folder and add to graph
                     if file.endswith(".txt"):
-                        file_path = os.path.join(dir_origin, file) 
-                        self.addToGraph(file_path, layer)            
+                        file_path = os.path.join(dir_origin, file)
+                        with open(file_path) as f:
+                            text = f.read()
+                            f.close()
+                        cn, ce = self.addToGraph(text, layer)
+                        count_nodes += cn
+                        count_edges += ce
+                        
+        print("added {0} nodes to {1} ".format(count_nodes, self.graph_nodes))
+        print("added {0} edges to {1} ".format(count_edges, self.graph_edges))
+                    
 
-
-    def addToGraph(self, file_path, layer):
-        """Add nodes and edges from words in the file."""
+    def addToGraph(self, text, layer):
+        """Add nodes and edges to graph."""
         # bag of words
-        with open(file_path) as f:
-            text = f.read()
         bow = text.split(" ")      
         # add new words
-        self.updateNodes(bow, layer)
+        count_nodes = self.updateNodes(bow, layer)
         # add new edges
-        self.updateEdges(bow)
+        count_edges = self.updateEdges(bow)
+        return count_nodes, count_edges
         
     
     def updateNodes(self, bow, layer):
@@ -84,8 +95,9 @@ class Graph(object):
         c.executemany(query, tuples)
         conn.commit()
         conn.close()
-        print("Added {0} nodes to graph {1} ".format(row_count, self.graph_nodes))
-
+        if DEBUG:
+            print("Added {0} nodes to {1} ".format(row_count, self.graph_nodes))
+        return row_count    #return number of inserted nodes
 
 
     def updateEdges(self, bow):
@@ -102,8 +114,9 @@ class Graph(object):
         c.executemany(query, tuples)                #weight??
         conn.commit()
         conn.close()
-        print("Added {0} edges to graph {1} ".format(row_count, self.graph_edges))
-       
+        if DEBUG:
+            print("Added {0} edges to {1} ".format(row_count, self.graph_edges))
+        return row_count        #return number of inserted edges
    
        
     def testGraph(self):

@@ -1,9 +1,16 @@
+__author__ = 'Zara'
+
 import os
 import re
 
+DEBUG = False
+
 class Parser:
+
     def __init__(self, outputdir):
         self.outputdir = outputdir
+        if not os.path.exists(outputdir):
+            os.makedirs(outputdir)
 
     def split(self, filename, chunksize=4024):
         rest = ''
@@ -58,6 +65,8 @@ class Parser:
         yearField = ['DP  -', 'DP -', 'DP-']
         abstractField = ['AB  -', 'AB -', 'AB-']
 
+        print("...splitting corpus into documents")
+         
         while 1:
             chunk = file.read(chunksize)
             if not chunk and not rest:
@@ -67,6 +76,7 @@ class Parser:
             length = len(docs)
 
             field = re.compile(r'\n(\b\w{2,4}\b\s{0,2}-)')
+               
             for d in range(0, length-1):
                 doc = re.split(field, docs[d])
 
@@ -85,8 +95,9 @@ class Parser:
                     year = doc[index+1].strip()[0:4]
                 else:
                     year = "unknown"
-                    print(docs[d])
-                    print("-------------------------")
+                    if DEBUG:
+                        print(docs[d])
+                        print("-------------------------")
 
                 year_dir = os.path.join(self.outputdir, year)
 
