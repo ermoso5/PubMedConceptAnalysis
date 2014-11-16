@@ -10,8 +10,4 @@ Required packages:
   - nltk 3.0.0
   - pyner
   
-Setting up the Stanford Named Entity Recognition server:
-Linux
-    java -mx1000m -cp stanford-ner.jar: edu.stanford.nlp.ie.NERServer -loadClassifier adept.ser.gz -port 9191 -outputFormat inlineXML
-Windows
-    java -mx1000m -cp stanford-ner.jar edu.stanford.nlp.ie.NERServer \ -loadClassifier adept.ser.gz -port 9191 -outputFormat inlineXML
+Also you need to set up a Stanford Named Entity Recognition local server using the "ner.sh" file in Linux or the "ner.bat" in Windows.
