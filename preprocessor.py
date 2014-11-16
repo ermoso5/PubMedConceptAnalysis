@@ -70,24 +70,26 @@ class Preprocessor(object):
             self.ner_mode = 'online'
             
     
-    def processFolder(self, root="corpus", graph=None, target_folder=None, stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False, ner=False):
+    def processFolder(self, root="corpus", graph=None, target_folder=None, ner=False, stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False):
         """
         Creates a target folder and related subdirectories according to the structure of the root folder. 
         Then, processes all the textual files in the root structure and store the results in the target structure.
         
         :root               The root folder contains years subfolders that in turn contain the '.txt' documents.
         :target             The name of the folder where preprocessed files will be stored. It may not exist.
+        :ner                Use named entity recognition.
         :stemming           Choose whether or not applying stemming. It may be None, 'light', 'medium', 'heavy'. 
         :min_word_length    Minimum number of characters for a word to be kept. 
         :remove_numbers     Remove lonely numbers. Keep numbers when together with characters.  
         :remove_duplicates  Remove the duplicates from the text.
-        :ner                Use named entity recognition.
         :return             None
         """
         if not os.path.isdir(root):
             raise Exception("'{0}' folder doesn't exist".format(root))
-        if graph and not isinstance(graph, Graph):
-            raise Exception("The graph object is non valid")
+        if graph:
+            if not isinstance(graph, Graph):
+                raise Exception("The graph object is non valid")
+            graph.connect()
         if target_folder and not os.path.isdir(target_folder):       #create 'target' folder if it doesn't exist
             os.mkdir(target_folder)            
             
@@ -106,30 +108,35 @@ class Preprocessor(object):
                 for file in os.listdir(dir_origin):             #open textual files under year folder and process them
                     if file.endswith(".txt"):               
                         string = self.fileToString(os.path.join(dir_origin, file))        #put file into string
-                        string = self.processString(string, stemming, min_word_length, remove_numbers, remove_duplicates, ner)
+                        string = self.processString(string, ner, stemming, min_word_length, remove_numbers, remove_duplicates)
                         
-                        if DEBUG:
-                            print(string)
-                            
-                        if graph:                               
-                            graph.addToGraph(string, layer)                                #add to graph 
-                        if target_folder:
-                            self.stringToFile(os.path.join(dir_dest, file), string)           #save string to file otherwise
-                        
+                        if string:
+                            if DEBUG:
+                                print(string)
+                            if graph:                               
+                                graph.addToGraph(string, layer)                                #add to graph 
+                            if target_folder:
+                                self.stringToFile(os.path.join(dir_dest, file), string)           #save string to file otherwise
+                     
+                graph.commit()
+        graph.close()   
 
-    def processString(self, string, stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False, ner=False):
+
+    def processString(self, string, ner=False, stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False):
         """ 
-        Apply prerpocessing to a string. 
+        Apply prerpocessing to a string.
+        :ner                Use named entity recognition.
         :stemming           Choose whether or not applying stemming. It may be None, 'light', 'medium', 'heavy'. 
         :min_word_length    Minimum number of characters for a word to be kept. 
         :remove_numbers     Remove lonely numbers. Keep numbers when together with characters.  
         :remove_duplicates  Remove the duplicates from the text.
         :return             Cleaned up string
-        :ner                Use named entity recognition.
         """
-        string = string.lower()                                     #convert to lower case                           
         string = self.removePunctuation(string)                     #remove the punctuation in EXCLUDE
         string = self.removeStopwords(string)                       #remove the stopwords in STOP_WORDS
+        if ner:
+            string = self.getEntities(string)                       #perform named entity recognition 
+        string = string.lower()                                     #convert to lower case                 
         if stemming:
             string = self.stemText(string, intensity=stemming)      #perform stemming
         if min_word_length > 0:
@@ -138,8 +145,6 @@ class Preprocessor(object):
             string = self.removeDuplicates(string)                  #remove duplicate words
         if remove_numbers:
             string = self.removeNumbers(string)                     #remove numbers
-        if ner:
-            string = self.getEntities(string)                       #perform named entity recognition 
         string = string.strip()                                     #remove trailing spaces
         return string
 

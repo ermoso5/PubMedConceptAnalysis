@@ -18,28 +18,48 @@ class Graph(object):
         self.graph_nodes = graph_name + "_nodes"
         self.graph_edges = graph_name + "_edges"
         self.dictionary = {}
-
-        conn = sqlite3.connect(self.sql_db)
-        c = conn.cursor()        
+        self.last_uid = 0
+        self.connect()       
         
         # create tables for nodes and edges if they don't exist
+        c = self.conn.cursor() 
         result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_nodes,))  
         if len(result.fetchall()) < 1:
-            c.execute("CREATE TABLE {0} (value, layer)".format(self.graph_nodes))       #id??
+            c.execute("CREATE TABLE {0} (id, value, layer)".format(self.graph_nodes))       #id??
             
             result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_edges,))  
             if len(result.fetchall()) > 0:
                 c.execute("DROP TABLE {0}".format(self.graph_edges))
                 
             c.execute("CREATE TABLE {0} (node1, node2)".format(self.graph_edges))       #weights??
-            conn.commit()
+            self.conn.commit()
        
         else:
-            result = c.execute("SELECT * FROM {0}".format(self.graph_nodes))  
+            result = c.execute("SELECT value, id FROM {0}".format(self.graph_nodes))  
             self.dictionary = dict(result.fetchall())
-            
-        conn.close()   
+            if self.dictionary:
+                self.last_uid = max(self.dictionary.values())
+            else:
+                self.last_uid = 0 
+            print("last assigned Unique Identifier: {0}".format(self.last_uid)) 
+        self.close()   
 
+
+    def connect(self):
+        self.conn = sqlite3.connect(self.sql_db)
+
+
+    def commit(self):
+        self.conn.commit()
+        
+        
+    def close(self):
+        self.conn.close() 
+
+
+    def getNewUid(self):
+        self.last_uid += 1 
+        return self.last_uid
 
     def makeFromFolder(self, root):
         if not os.path.isdir(root):
@@ -82,40 +102,35 @@ class Graph(object):
     
     def updateNodes(self, bow, layer):
         """Update in-memory dictionary and database node table with new nodes."""
-        conn = sqlite3.connect(self.sql_db)
-        c = conn.cursor()
-        query = "INSERT INTO {0} VALUES (?, ?) ".format(self.graph_nodes)
+        c = self.conn.cursor()
+        query = "INSERT INTO {0} VALUES (?, ?, ?) ".format(self.graph_nodes)
         row_count = 0
         tuples = []
         for i in range(len(bow)):
-            if bow[i] not in self.dictionary.keys():
+            if not self.dictionary.get(bow[i]):
                 row_count += 1
-                self.dictionary[bow[i]] = layer
-                tuples.append((bow[i], layer))      #id??
+                uid = self.getNewUid()                   #assign a new sequential id
+                self.dictionary[bow[i]] = uid           #keep it in memory
+                tuples.append((uid, bow[i], layer))     #save it to database (id, name, layer)
         c.executemany(query, tuples)
-        conn.commit()
-        conn.close()
-        if DEBUG:
-            print("Added {0} nodes to {1} ".format(row_count, self.graph_nodes))
         return row_count    #return number of inserted nodes
 
 
     def updateEdges(self, bow):
         """Update edge table with new edges."""
-        conn = sqlite3.connect(self.sql_db)
-        c = conn.cursor()
+        c = self.conn.cursor()
         query = "INSERT INTO {0} VALUES (?, ?) ".format(self.graph_edges)
         row_count = 0
         tuples = []
         for i in range(0, len(bow)-1):          #create edges among all the words in the file
+            fromUid = self.dictionary.get(bow[i])      #get the first id
             for j in range(i+1, len(bow)):
+                toUid = self.dictionary.get(bow[j])
                 row_count += 1
-                tuples.append((bow[i], bow[j]))
-        c.executemany(query, tuples)                #weight??
-        conn.commit()
-        conn.close()
-        if DEBUG:
-            print("Added {0} edges to {1} ".format(row_count, self.graph_edges))
+                tuples.append((fromUid, toUid))           #(bow[i], bow[j]))
+                if DEBUG:
+                    print("{0}[{1}] -> {2}[{3}]".format(bow[i], fromUid, bow[j], toUid))
+        c.executemany(query, tuples)            #weight??
         return row_count        #return number of inserted edges
    
        
