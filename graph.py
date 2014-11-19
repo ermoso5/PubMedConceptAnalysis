@@ -1,3 +1,4 @@
+from encodings.punycode import selective_find
 import os
 import sqlite3
 
@@ -17,6 +18,7 @@ class Graph(object):
         self.sql_db = SQL_DB
         self.graph_nodes = graph_name + "_nodes"
         self.graph_edges = graph_name + "_edges"
+        self.graph_weights = graph_name + "_weight"
         self.dictionary = {}
         self.last_uid = 0
         self.connect()       
@@ -30,8 +32,13 @@ class Graph(object):
             result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_edges,))  
             if len(result.fetchall()) > 0:
                 c.execute("DROP TABLE {0}".format(self.graph_edges))
-                
             c.execute("CREATE TABLE {0} (node1, node2)".format(self.graph_edges))       #weights??
+
+            result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_weights,))
+            if len(result.fetchall()) > 0:
+                c.execute("DROP TABLE {0}".format(self.graph_weights))
+            c.execute("CREATE TABLE {0} (node1, node2, weight)".format(self.graph_weights))       #weights??
+
             self.conn.commit()
        
         else:
@@ -128,11 +135,27 @@ class Graph(object):
                 toUid = self.dictionary.get(bow[j])
                 row_count += 1
                 tuples.append((fromUid, toUid))           #(bow[i], bow[j]))
+                self.updateWeight(fromUid, toUid)
                 if DEBUG:
                     print("{0}[{1}] -> {2}[{3}]".format(bow[i], fromUid, bow[j], toUid))
         c.executemany(query, tuples)            #weight??
         return row_count        #return number of inserted edges
-   
+
+    def updateWeight(self, fromUid, toUid):
+        """ update weight table with new weight of the edge."""
+        c = self.conn.cursor()
+        query = "SELECT * FROM  {0} WHERE node1=? AND node2=?".format(self.graph_weights)
+        result = c.execute(query, (fromUid, toUid))
+        row = result.fetchone()
+        if not row :
+            query_insert = "INSERT INTO {0} VALUES (?,?,?)".format(self.graph_weights)
+            c.execute(query_insert, (fromUid, toUid, 1))
+        else:
+            #print(tuple(row))
+            new_weight = row[2]+1
+            query_update = "UPDATE {0} SET weight=? WHERE node1=? AND node2=?".format(self.graph_weights)
+            c.execute(query_update, (new_weight, fromUid, toUid))
+
        
     def testGraph(self):
         """Print some rows from the graph table."""
@@ -148,6 +171,11 @@ class Graph(object):
         query = "SELECT * FROM {0} LIMIT 20".format(self.graph_edges)
         result = c.execute(query)
         for row in result: 
+            print(row)
+        print("SOME EDGES WEIGHTS")
+        query = "SELECT * FROM {0} LIMIT 20".format(self.graph_weights)
+        result = c.execute(query)
+        for row in result:
             print(row)
         conn.close()
                 
