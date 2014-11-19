@@ -135,27 +135,23 @@ class Graph(object):
                 toUid = self.dictionary.get(bow[j])
                 row_count += 1
                 tuples.append((fromUid, toUid))           #(bow[i], bow[j]))
-                self.updateWeight(fromUid, toUid)
                 if DEBUG:
                     print("{0}[{1}] -> {2}[{3}]".format(bow[i], fromUid, bow[j], toUid))
         c.executemany(query, tuples)            #weight??
         return row_count        #return number of inserted edges
 
-    def updateWeight(self, fromUid, toUid):
+    def updateWeights(self):
         """ update weight table with new weight of the edge."""
+        tuples = []
         c = self.conn.cursor()
-        query = "SELECT * FROM  {0} WHERE node1=? AND node2=?".format(self.graph_weights)
-        result = c.execute(query, (fromUid, toUid))
-        row = result.fetchone()
-        if not row :
-            query_insert = "INSERT INTO {0} VALUES (?,?,?)".format(self.graph_weights)
-            c.execute(query_insert, (fromUid, toUid, 1))
-        else:
-            #print(tuple(row))
-            new_weight = row[2]+1
-            query_update = "UPDATE {0} SET weight=? WHERE node1=? AND node2=?".format(self.graph_weights)
-            c.execute(query_update, (new_weight, fromUid, toUid))
-
+        query = "DELETE FROM {0}".format(self.graph_weights)
+        c.execute(query)
+        query = "SELECT node1,node2,COUNT(*) FROM {0} GROUP BY node1,node2".format(self.graph_edges)
+        result = c.execute(query)
+        for row in result:
+            tuples.append(row)
+        query = "INSERT INTO {0} VALUES (?,?,?)".format(self.graph_weights)
+        c.executemany(query, tuples)
        
     def testGraph(self):
         """Print some rows from the graph table."""

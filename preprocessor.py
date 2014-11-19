@@ -117,8 +117,9 @@ class Preprocessor(object):
                                 graph.addToGraph(string, layer)                                #add to graph 
                             if target_folder:
                                 self.stringToFile(os.path.join(dir_dest, file), string)           #save string to file otherwise
-                     
                 graph.commit()
+        graph.updateWeights()
+        graph.commit()
         graph.close()   
 
 
