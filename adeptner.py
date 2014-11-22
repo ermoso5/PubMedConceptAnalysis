@@ -1,5 +1,3 @@
-__author__ = 'Zara'
-
 ##### ADEPT NER
 
 #p = Popen("new 2.bat", cwd=r"C:\Users\Zara\Desktop")
@@ -7,6 +5,10 @@ __author__ = 'Zara'
 #print(p.returncode) # is 0 if success
 
 import ner
+
+
+__author__ = 'Zara'
+
 
 class Adeptner:
 
