@@ -129,14 +129,12 @@ class Processor(object):
         if ner:
             entities = self.getEntities(string)                     #perform named entity recognition 
         else:
-            string = self.removePunctuation(string)                 #remove the punctuation in EXCLUDE
             string = self.removeStopwords(string)                   #remove the stopwords in STOP_WORDS
-            string = self.removeNumbers(string)                     #remove numbers
             entities = string.split(" ")                            #this creates a bag of words        
         
         if entities:    
             for ent in entities:
-                ent = ent.lower()
+                ent = self.cleanText(ent)                             #remove punctuation and numbers
                 if stemming:
                     ent = self.stemText(ent, intensity=stemming)        #perform stemming
                 if min_word_length > 0:
@@ -202,14 +200,20 @@ class Processor(object):
         return ' '.join(result)
 
 
-    def removePunctuation(self, text):
-        """Remove the punctuation specified in EXCLUDE from the string."""
+    def cleanText(self, text):
+        """
+        1. remove the punctuation specified in EXCLUDE 
+        2. remove numbers
+        3. transform to lowercase
+        4. remove multiple spaces
+        """
         new_text = ""
         for c in text:
-            if c in self.exclude:
+            if c in self.exclude or c.isdigit():
                 new_text = new_text + " "
             else:
                 new_text = new_text + c
+        new_text = new_text.lower()
         return ' '.join(new_text.split())       #this removes double spaces
         
         
@@ -231,14 +235,7 @@ class Processor(object):
             if word not in self.stop_words:
                 result.append(word)
         return ' '.join(result)
-        
 
-    def removeNumbers(self, text):
-        """Remove numbers that appear alone in the text. Keep the numbers inside words."""
-        bow = text.split(" ")
-        result = [word for word in bow if not word.isdigit()]
-        return ' '.join(result)
-    
 
 #if __name__=="__main__":
 #    debug()
