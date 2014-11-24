@@ -2,17 +2,6 @@
 This class provides the preprocessing functions for the PubMed corpus:
     processFolder(root, target, stemming, min_word_length, remove_numbers, remove_duplicates, ner)
     processString(string, stemming, min_word_length, remove_numbers, remove_duplicates, ner)
-    
-Auxiliary functions are:    
-    fileToString(file_path)
-    stringToFile(file_path, text)    
-    stemText(text, intensity)
-    removeShortWords(text, min_word_length)
-    removePunctuation(text)
-    removeStopwords(text)
-    removeDuplicates(text)
-    removeNumbers(text)
-    ner(string)
 """
 
 import os
@@ -21,7 +10,8 @@ import requests
 import json
 
 from nltk import stem
-
+from adeptner import Adeptner
+from graph import Graph
 
 __author__ = "Marcello Bendetti"
 __status__ = "Prototype"
@@ -55,76 +45,106 @@ PREFIXES = ['von', 'de', 'vant', 'van', 'der', 'vom', 'vander', 'zur',
 'mac', 'mrs', 'mr', 'miss', 'jr', 'sr', 'II', 'III', 'IV', 'in']  
      
      
-class Preprocessor(object):
+class Processor(object):
 
     def __init__(self):
         self.exclude = EXCLUDE
         self.stop_words = STOP_WORDS
         self.prefixes = PREFIXES    #currently prefixes are not used
-        
+        try:
+            self.ner = Adeptner()
+            self.ner_mode = 'offline'
+        except:
+            print("WARNING: you are using an online NER!")
+            self.ner_mode = 'online'
+            
     
-    def processFolder(self, root="corpus", target="processed", stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False, ner=False):
+    def folderToGraph(self, root="corpus", target_folder=None, graph=None, ner=False, stemming='medium', min_word_length=1):
         """
         Creates a target folder and related subdirectories according to the structure of the root folder. 
         Then, processes all the textual files in the root structure and store the results in the target structure.
         
         :root               The root folder contains years subfolders that in turn contain the '.txt' documents.
-        :target             The name of the folder where preprocessed files will be stored. It may not exist.
+        :target_folder      The folderwhere to store the processed files.
+        :graph              The graph object.
+        :ner                Use named entity recognition.
         :stemming           Choose whether or not applying stemming. It may be None, 'light', 'medium', 'heavy'. 
         :min_word_length    Minimum number of characters for a word to be kept. 
-        :remove_numbers     Remove lonely numbers. Keep numbers when together with characters.  
-        :remove_duplicates  Remove the duplicates from the text.
-        :ner                Use named entity recognition.
         :return             None
         """
         if not os.path.isdir(root):
             raise Exception("'{0}' folder doesn't exist".format(root))
-        
-        if not os.path.isdir(target):       #create 'target' folder if it doesn't exist
-            os.mkdir(target)
+        if graph:
+            if not isinstance(graph, Graph):
+                raise Exception("The graph object is non valid")
+            graph.connect()
+        if target_folder and not os.path.isdir(target_folder):       #create 'target' folder if it doesn't exist
+            os.mkdir(target_folder)            
             
-        for dir in os.listdir(root):                #visit year subdirectories of 'root' folder
-            dir_origin = os.path.join(root, dir)     
-            
-            if os.path.isdir(dir_origin):
-                dir_dest = os.path.join(target, dir)
-                if not os.path.isdir(dir_dest):     #create year subfolders if they don't exist in 'target'
-                    os.mkdir(dir_dest)
+        print("...preprocessing documents and building the graph")
+        count_nodes = 0 
+        count_edges = 0
+              
+        for dir in os.listdir(root):                            #visit year subdirectories of 'root' folder
+            dir_origin = os.path.join(root, dir)
+            if os.path.isdir(dir_origin) and dir.isdigit():     #don't visit directories whose name is not a year
+                layer = int(dir)                                #layer becames the year
+                
+                if target_folder:
+                    dir_dest = os.path.join(target_folder, dir)
+                    if not os.path.isdir(dir_dest):             #create year subfolders if they don't exist in 'target' 
+                        os.mkdir(dir_dest)
        
-                for file in os.listdir(dir_origin):     #open textual files under year folder and process them
+                for file in os.listdir(dir_origin):             #open textual files under year folder and process them
                     if file.endswith(".txt"):               
-                        string = self.fileToString(os.path.join(dir_origin, file))        #put file into string
-                        string = self.processString(string, stemming, min_word_length, remove_numbers, remove_duplicates, ner)
-                        if DEBUG:
-                            print(string)                                                 #display the results
-                        self.stringToFile(os.path.join(dir_dest, file), string)           #save string to file
+                        string = self.fileToString(os.path.join(dir_origin, file))              #put file into string
+                        entities = self.processString(string, ner, stemming, min_word_length)
                         
+                        if entities: 
+                            if DEBUG:
+                                print(entities)
+                            if graph:                               
+                                cn, ce = graph.addToGraph(entities, int(layer))             #add to graph with year as layer
+                                count_nodes += cn
+                                count_edges += ce
+                            if target_folder:
+                                self.stringToFile(os.path.join(dir_dest, file), entities)   #save string to file
+                graph.commit()
+        graph.close()
+        print("added {0} nodes to {1} ".format(count_nodes, graph.graph_nodes))
+        print("added {0} edges to {1} ".format(count_edges, graph.graph_edges))   
 
-    def processString(self, string, stemming='medium', min_word_length=1, remove_numbers=False, remove_duplicates=False, ner=False):
+
+    def processString(self, string, ner=False, stemming=None, min_word_length=1):
         """ 
-        Apply prerpocessing to a string. 
+        Apply prerpocessing to a string.
+        :ner                Use named entity recognition (if True) or text preprocessing (if False) to extract entities.
         :stemming           Choose whether or not applying stemming. It may be None, 'light', 'medium', 'heavy'. 
         :min_word_length    Minimum number of characters for a word to be kept. 
-        :remove_numbers     Remove lonely numbers. Keep numbers when together with characters.  
-        :remove_duplicates  Remove the duplicates from the text.
         :return             Cleaned up string
-        :ner                Use named entity recognition.
         """
-        string = string.lower()                                     #convert to lower case                           
-        string = self.removePunctuation(string)                     #remove the punctuation in EXCLUDE
-        string = self.removeStopwords(string)                       #remove the stopwords in STOP_WORDS
-        if stemming:
-            string = self.stemText(string, intensity=stemming)      #perform stemming
-        if min_word_length > 0:
-            string = self.removeShortWords(string, min_word_length)  #remove short words
-        if remove_duplicates:
-            string = self.removeDuplicates(string)                  #remove duplicate words
-        if remove_numbers:
-            string = self.removeNumbers(string)                     #remove numbers
+        entities = []
+        result = []
+        
         if ner:
-            string = self.NER(string)
-        string = string.strip()                                     #remove trailing spaces
-        return string
+            entities = self.getEntities(string)                     #perform named entity recognition 
+        else:
+            string = self.removeStopwords(string)                   #remove the stopwords in STOP_WORDS
+            entities = string.split(" ")                            #this creates a bag of words        
+        
+        if entities:    
+            for ent in entities:
+                ent = self.cleanText(ent)                             #remove punctuation and numbers
+                if stemming:
+                    ent = self.stemText(ent, intensity=stemming)        #perform stemming
+                if min_word_length > 0:
+                    ent = self.removeShortWords(ent, min_word_length)   #remove short words
+                ent = ent.strip()                                       #remove trailing spaces
+                if ent:
+                    result.append(ent)
+            
+        result = list(set(result))                                  #remove duplicates
+        return result
 
 
     def fileToString(self, file_path):
@@ -132,15 +152,34 @@ class Preprocessor(object):
         text = ""
         if file_path:
             with open(file_path, "r") as f:
-                text = f.read() #omit size to read all
+                text = f.read() #omit size to read it all
+                f.close()
         return text
      
      
     def stringToFile(self, file_path, text):
         """Take the content of a string and put it in a '.txt' file."""
         if file_path and text:
-            with open(file_path, "w") as text_file:
-                text_file.write(text)
+            with open(file_path, "w") as f:
+                f.write(text)
+                f.close()
+
+    
+    def getEntities(self, text):
+        """Apply Named Entity Recognition from Stanford's web service ADEPTA."""
+        if self.ner_mode == 'online':
+            ADEPT_url="http://dust.stanford.edu:8080/ADEPTRest/rest/annotate"
+            payload = {"adeptifyThis" : text}
+            r=requests.post(ADEPT_url, data=payload)
+            data = json.loads(r.text)
+            result = []
+            for row in data[0]["tokens"]:
+                if row["label"] == "MEDTERM":
+                    result.append(row["token"])
+                    print(row["token"])
+            return ' '.join(result)
+        else:
+            return self.ner.getTerms(text).get('MEDTERM')
 
 
     def stemText(self, text, intensity):    
@@ -161,14 +200,20 @@ class Preprocessor(object):
         return ' '.join(result)
 
 
-    def removePunctuation(self, text):
-        """Remove the punctuation specified in EXCLUDE from the string."""
+    def cleanText(self, text):
+        """
+        1. remove the punctuation specified in EXCLUDE 
+        2. remove numbers
+        3. transform to lowercase
+        4. remove multiple spaces
+        """
         new_text = ""
         for c in text:
-            if c in self.exclude:
+            if c in self.exclude or c.isdigit():
                 new_text = new_text + " "
             else:
                 new_text = new_text + c
+        new_text = new_text.lower()
         return ' '.join(new_text.split())       #this removes double spaces
         
         
@@ -190,37 +235,7 @@ class Preprocessor(object):
             if word not in self.stop_words:
                 result.append(word)
         return ' '.join(result)
-        
 
-    def removeDuplicates(self, text):
-        """Remove words that appear more than one."""
-        bow = text.split(" ")
-        result = set(bow)
-        return ' '.join(result)
-        
 
-    def removeNumbers(self, text):
-        """Remove numbers that appear alone in the text. Keep the numbers inside words."""
-        bow = text.split(" ")
-        result = [word for word in bow if not word.isdigit()]
-        return ' '.join(result)
-    
-    
-    def NER(self, text):
-        """Apply Named Entity Recognition from Stanford's web service ADEPTA."""
-        ADEPT_url="http://dust.stanford.edu:8080/ADEPTRest/rest/annotate"
-        payload = {"adeptifyThis" : text}
-        r=requests.post(ADEPT_url, data=payload)
-        data = json.loads(r.text)
-        result = []
-        for row in data[0]["tokens"]:
-            if row["label"] == "MEDTERM":
-                result.append(row["token"])
-                print(row["token"])
-        return ' '.join(result)
-    
-    
-if __name__=="__main__":
-    pp = preprossor()
-    result = pp.preprocessString("Test string")
-    print(result)
+#if __name__=="__main__":
+#    debug()
