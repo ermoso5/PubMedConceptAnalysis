@@ -2,7 +2,7 @@ import os
 import sqlite3
 
 
-__author__ = "Marcello Bendetti"
+__author__ = ["Marcello Benedetti", "Falitokiniaina Rabearison"]
 __status__ = "Prototype"
 
 
@@ -17,99 +17,125 @@ class Graph(object):
         self.sql_db = SQL_DB
         self.graph_nodes = graph_name + "_nodes"
         self.graph_edges = graph_name + "_edges"
-        self.dictionary = {}
-
-        conn = sqlite3.connect(self.sql_db)
-        c = conn.cursor()        
+        self.graph_weights = graph_name + "_weights"
         
-        # create tables for nodes and edges if they don't exist
-        result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_nodes,))  
+        self.dictionary = {}
+        self.last_uid = 0
+        
+        # create tables for nodes, edges and weights if they don't exist
+        self.connect() 
+        c = self.conn.cursor() 
+        result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_nodes,)) 
+        
         if len(result.fetchall()) < 1:
-            c.execute("CREATE TABLE {0} (value, layer)".format(self.graph_nodes))       #id??
+            c.execute("CREATE TABLE {0} (id, value, layer)".format(self.graph_nodes)) 
             
-            result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_edges,))  
+            result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_edges,)) 
             if len(result.fetchall()) > 0:
                 c.execute("DROP TABLE {0}".format(self.graph_edges))
-                
-            c.execute("CREATE TABLE {0} (node1, node2)".format(self.graph_edges))       #weights??
-            conn.commit()
+            c.execute("CREATE TABLE {0} (node1, node2)".format(self.graph_edges)) 
+
+            result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_weights,))
+            if len(result.fetchall()) > 0:
+                c.execute("DROP TABLE {0}".format(self.graph_weights))
+            c.execute("CREATE TABLE {0} (node1, node2, weight)".format(self.graph_weights))
+
+            self.conn.commit()
        
         else:
-            result = c.execute("SELECT * FROM {0}".format(self.graph_nodes))  
+            result = c.execute("SELECT value, id FROM {0}".format(self.graph_nodes)) 
             self.dictionary = dict(result.fetchall())
-            
-        conn.close()   
+            if self.dictionary:
+                self.last_uid = max(self.dictionary.values())
+            else:
+                self.last_uid = 0 
+            print("last assigned Unique Identifier: {0}".format(self.last_uid)) 
+        
+        self.close()  
 
 
-    def makeFromFolder(self, root):
-        if not os.path.isdir(root):
-            raise Exception("'{0}' folder doesn't exist".format(root))
-     
-        for dir in os.listdir(root):                #visit year subdirectories of 'root' folder
-            dir_origin = os.path.join(root, dir)
-            
-            if os.path.isdir(dir_origin):
-                layer = dir                         #create a layer for each year
-
-                for file in os.listdir(dir_origin):        #open textual files under year folder and add to graph
-                    if file.endswith(".txt"):
-                        file_path = os.path.join(dir_origin, file) 
-                        self.addToGraph(file_path, layer)            
+    def connect(self):
+        self.conn = sqlite3.connect(self.sql_db)
 
 
-    def addToGraph(self, file_path, layer):
-        """Add nodes and edges from words in the file."""
-        # bag of words
-        with open(file_path) as f:
-            text = f.read()
-        bow = text.split(" ")      
+    def commit(self):
+        self.conn.commit()
+        
+        
+    def close(self):
+        self.conn.close() 
+
+
+    def getNewUid(self):
+        self.last_uid += 1 
+        return self.last_uid
+
+
+    def addToGraph(self, entities, layer):
+        """Add nodes and edges to graph. Entities is a list, layer is a value that is in common among the entities"""            
         # add new words
-        self.updateNodes(bow, layer)
+        count_nodes = self.updateNodes(entities, layer)
         # add new edges
-        self.updateEdges(bow)
+        count_edges = self.updateEdges(entities)
+        return count_nodes, count_edges
         
     
-    def updateNodes(self, bow, layer):
+    def updateNodes(self, entities, layer):
         """Update in-memory dictionary and database node table with new nodes."""
-        conn = sqlite3.connect(self.sql_db)
-        c = conn.cursor()
-        query = "INSERT INTO {0} VALUES (?, ?) ".format(self.graph_nodes)
+        c = self.conn.cursor()
+        query = "INSERT INTO {0} VALUES (?, ?, ?) ".format(self.graph_nodes)
         row_count = 0
         tuples = []
-        for i in range(len(bow)):
-            if bow[i] not in self.dictionary.keys():
+        for i in range(len(entities)):
+            if not self.dictionary.get(entities[i]):
                 row_count += 1
-                self.dictionary[bow[i]] = layer
-                tuples.append((bow[i], layer))      #id??
+                uid = self.getNewUid()                   #assign a new sequential id
+                self.dictionary[entities[i]] = uid           #keep it in memory
+                tuples.append((uid, entities[i], layer))     #save it to database (id, name, layer)
         c.executemany(query, tuples)
-        conn.commit()
-        conn.close()
-        print("Added {0} nodes to graph {1} ".format(row_count, self.graph_nodes))
+        return row_count    #return number of inserted nodes
 
 
-
-    def updateEdges(self, bow):
+    def updateEdges(self, entities):
         """Update edge table with new edges."""
-        conn = sqlite3.connect(self.sql_db)
-        c = conn.cursor()
+        c = self.conn.cursor()
         query = "INSERT INTO {0} VALUES (?, ?) ".format(self.graph_edges)
         row_count = 0
         tuples = []
-        for i in range(0, len(bow)-1):          #create edges among all the words in the file
-            for j in range(i+1, len(bow)):
+        for i in range(0, len(entities)-1):          #create edges among all the entities
+            fromUid = self.dictionary.get(entities[i])      #get the first id
+            for j in range(i+1, len(entities)):
+                toUid = self.dictionary.get(entities[j])
                 row_count += 1
-                tuples.append((bow[i], bow[j]))
-        c.executemany(query, tuples)                #weight??
-        conn.commit()
-        conn.close()
-        print("Added {0} edges to graph {1} ".format(row_count, self.graph_edges))
-       
-   
+                tuples.append((fromUid, toUid)) 
+                if DEBUG:
+                    print("{0}[{1}] -> {2}[{3}]".format(entities[i], fromUid, entities[j], toUid))
+        c.executemany(query, tuples)
+        return row_count        #return number of inserted edges
+
+
+    def compressGraph(self):
+        """ Update the weight table and compress the edges."""
+        self.connect()
+        c = self.conn.cursor()
+        tuples = []
+        query = "DELETE FROM {0}".format(self.graph_weights)
+        c.execute(query)
+        query = "SELECT node1, node2, COUNT(*) FROM {0} GROUP BY node1, node2 ".format(self.graph_edges)
+        result = c.execute(query)
+        for row in result:
+            tuples.append(row)
+        query = "INSERT INTO {0} VALUES (?,?,?) ".format(self.graph_weights)
+        c.executemany(query, tuples)
+        self.commit()
+        self.close()
+        
+  
        
     def testGraph(self):
         """Print some rows from the graph table."""
-        conn = sqlite3.connect(self.sql_db)
-        c = conn.cursor()
+        self.connect()
+        c = self.conn.cursor()
         query = "SELECT * FROM {0} LIMIT 20".format(self.graph_nodes)
         result = c.execute(query)
         print("SOME NODES")
@@ -121,10 +147,14 @@ class Graph(object):
         result = c.execute(query)
         for row in result: 
             print(row)
-        conn.close()
+        print("SOME WEIGHTS")
+        query = "SELECT * FROM {0} LIMIT 20".format(self.graph_weights)
+        result = c.execute(query)
+        for row in result:
+            print(row)
+        self.close()
                 
     
-if __name__=="__main__":
-    g = graph()
-    g.addToGraph()
-    g.testGraph()
+
+#if __name__=="__main__":
+#    debug()
