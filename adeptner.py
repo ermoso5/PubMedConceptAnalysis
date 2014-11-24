@@ -1,14 +1,7 @@
-##### ADEPT NER
-
-#p = Popen("new 2.bat", cwd=r"C:\Users\Zara\Desktop")
-#stdout, stderr = p.communicate()
-#print(p.returncode) # is 0 if success
-
-import ner
-
 
 __author__ = 'Zara'
 
+import ner
 
 class Adeptner:
 
