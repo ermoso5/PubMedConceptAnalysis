@@ -6,7 +6,6 @@ import re
 DEBUG = False
 
 class Parser:
-
     def __init__(self, outputdir):
         self.outputdir = outputdir
         if not os.path.exists(outputdir):
@@ -64,6 +63,7 @@ class Parser:
         file = open(filename, encoding="utf-8")
         yearField = ['DP  -', 'DP -', 'DP-']
         abstractField = ['AB  -', 'AB -', 'AB-']
+        keywordField = ['MH  -', 'MH -', 'MH-' ]
 
         print("...splitting corpus into documents")
          
@@ -74,21 +74,37 @@ class Parser:
 
             docs = re.split("PMID-", (rest+chunk).strip())
             length = len(docs)
+            if length > 1:
+                medLineLength = length-1
+            else:
+                medLineLength = length
 
             field = re.compile(r'\n(\b\w{2,4}\b\s{0,2}-)')
-               
-            for d in range(0, length-1):
+            for d in range(0, medLineLength):
                 doc = re.split(field, docs[d])
+                keywordsFound = False
 
+                #find pmid
+                #skip medlines with no pmid
                 if not doc[0]:
                     continue
                 pmid = doc[0].strip()
 
-                index = self.findOneOf(doc, abstractField)
-                if index == -1:
-                    continue
-                else:
-                    abstract = doc[index+1]
+                index = self.findOneOf(doc, keywordField)
+                if index != -1:
+                    abstract = ""
+                    i = index
+                    while doc[i].startswith("MH"):
+                        abstract += doc[i+1]
+                        i+=2
+                    keywordsFound = True
+
+                if not keywordsFound:
+                    index = self.findOneOf(doc, abstractField)
+                    if index == -1:
+                        continue
+                    else:
+                        abstract = doc[index+1]
 
                 index = self.findOneOf(doc, yearField)
                 if index > -1:
