@@ -9,7 +9,7 @@ __author__ = 'Zara'
 
 import ner
 
-class ADEPTNER:
+class Adeptner:
     def __init__(self):
         self.tagger = ner.SocketNER(host='localhost', port=9191)
 
