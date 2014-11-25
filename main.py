@@ -14,7 +14,7 @@ def main(parsing=True, processing=True, finalize=True):
     if parsing:
         start = time.process_time()
         par = Parser(outputdir="corpus")     
-        par.splitMedline(filename="") #verybigmed.txt
+        par.splitMedline(filename="small_medline.txt") #verybigmed.txt
         print("Parsing done in {0}s".format(time.process_time()-start))
         
         

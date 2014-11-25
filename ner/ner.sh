@@ -8,4 +8,3 @@ java -mx1000m \
      -loadClassifier adept.ser.gz \
      -port 9191 \
      -outputFormat inlineXML
-
