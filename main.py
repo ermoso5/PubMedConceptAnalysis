@@ -14,7 +14,7 @@ def main(parsing=True, processing=True, finalize=True):
     if parsing:
         start = time.process_time()
         par = Parser(outputdir="corpus")     
-        par.splitMedline(filename="small_medline.txt")
+        par.splitMedline(filename="") #verybigmed.txt
         print("Parsing done in {0}s".format(time.process_time()-start))
         
         
@@ -31,7 +31,7 @@ def main(parsing=True, processing=True, finalize=True):
         print("Processsing done in {0}s".format(time.process_time()-start))
         
         
-    #STEP 3: finalization
+    #STEP 3: finalization, creates a new table with the weights 
     if finalize:
         start = time.process_time()
         g.compressGraph()
