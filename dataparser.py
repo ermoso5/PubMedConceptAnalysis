@@ -82,7 +82,7 @@ class Parser:
             field = re.compile(r'\n(\b\w{2,4}\b\s{0,2}-)')
             for d in range(0, medLineLength):
                 doc = re.split(field, docs[d])
-                keywordsFound = False
+                abstract = ""
 
                 #find pmid
                 #skip medlines with no pmid
@@ -92,19 +92,17 @@ class Parser:
 
                 index = self.findOneOf(doc, keywordField)
                 if index != -1:
-                    abstract = ""
                     i = index
                     while doc[i].startswith("MH"):
                         abstract += doc[i+1]
                         i+=2
-                    keywordsFound = True
 
-                if not keywordsFound:
-                    index = self.findOneOf(doc, abstractField)
-                    if index == -1:
-                        continue
-                    else:
-                        abstract = doc[index+1]
+                index = self.findOneOf(doc, abstractField)
+                if index == -1:
+                    continue
+                else:
+                    abstract += " "
+                    abstract += doc[index+1]
 
                 index = self.findOneOf(doc, yearField)
                 if index > -1:
