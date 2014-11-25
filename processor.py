@@ -6,14 +6,13 @@ This class provides the preprocessing functions for the PubMed corpus:
 
 import os
 import time
-import requests
 import json
 
 from nltk import stem
 from adeptner import Adeptner
 from graph import Graph
 
-__author__ = "Marcello Bendetti"
+__author__ = "Marcello Benedetti"
 __status__ = "Prototype"
 
 
@@ -51,12 +50,7 @@ class Processor(object):
         self.exclude = EXCLUDE
         self.stop_words = STOP_WORDS
         self.prefixes = PREFIXES    #currently prefixes are not used
-        try:
-            self.ner = Adeptner()
-            self.ner_mode = 'offline'
-        except:
-            print("WARNING: you are using an online NER!")
-            self.ner_mode = 'online'
+        self.ner = Adeptner()
             
     
     def folderToGraph(self, root="corpus", target_folder=None, graph=None, ner=False, stemming='medium', min_word_length=1):
@@ -88,7 +82,7 @@ class Processor(object):
         for dir in os.listdir(root):                            #visit year subdirectories of 'root' folder
             dir_origin = os.path.join(root, dir)
             if os.path.isdir(dir_origin) and dir.isdigit():     #don't visit directories whose name is not a year
-                layer = int(dir)                                #layer becames the year
+                year = int(dir)                               
                 
                 if target_folder:
                     dir_dest = os.path.join(target_folder, dir)
@@ -104,7 +98,7 @@ class Processor(object):
                             if DEBUG:
                                 print(entities)
                             if graph:                               
-                                cn, ce = graph.addToGraph(entities, int(layer))             #add to graph with year as layer
+                                cn, ce = graph.addToGraph(entities, int(year))             
                                 count_nodes += cn
                                 count_edges += ce
                             if target_folder:
@@ -167,19 +161,7 @@ class Processor(object):
     
     def getEntities(self, text):
         """Apply Named Entity Recognition from Stanford's web service ADEPTA."""
-        if self.ner_mode == 'online':
-            ADEPT_url="http://dust.stanford.edu:8080/ADEPTRest/rest/annotate"
-            payload = {"adeptifyThis" : text}
-            r=requests.post(ADEPT_url, data=payload)
-            data = json.loads(r.text)
-            result = []
-            for row in data[0]["tokens"]:
-                if row["label"] == "MEDTERM":
-                    result.append(row["token"])
-                    print(row["token"])
-            return ' '.join(result)
-        else:
-            return self.ner.getTerms(text).get('MEDTERM')
+        return self.ner.getTerms(text).get('MEDTERM')
 
 
     def stemText(self, text, intensity):    

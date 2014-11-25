@@ -28,7 +28,7 @@ class Graph(object):
         result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_nodes,)) 
         
         if len(result.fetchall()) < 1:
-            c.execute("CREATE TABLE {0} (id, value, layer)".format(self.graph_nodes)) 
+            c.execute("CREATE TABLE {0} (id, term, year)".format(self.graph_nodes)) 
             
             result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_edges,)) 
             if len(result.fetchall()) > 0:
@@ -43,7 +43,7 @@ class Graph(object):
             self.conn.commit()
        
         else:
-            result = c.execute("SELECT value, id FROM {0}".format(self.graph_nodes)) 
+            result = c.execute("SELECT term, id FROM {0}".format(self.graph_nodes)) 
             self.dictionary = dict(result.fetchall())
             if self.dictionary:
                 self.last_uid = max(self.dictionary.values())
@@ -71,16 +71,16 @@ class Graph(object):
         return self.last_uid
 
 
-    def addToGraph(self, entities, layer):
-        """Add nodes and edges to graph. Entities is a list, layer is a value that is in common among the entities"""            
+    def addToGraph(self, entities, year):
+        """Add nodes and edges to graph. Entities is a list, year is an integer."""            
         # add new words
-        count_nodes = self.updateNodes(entities, layer)
+        count_nodes = self.updateNodes(entities, year)
         # add new edges
         count_edges = self.updateEdges(entities)
         return count_nodes, count_edges
         
     
-    def updateNodes(self, entities, layer):
+    def updateNodes(self, entities, year):
         """Update in-memory dictionary and database node table with new nodes."""
         c = self.conn.cursor()
         query = "INSERT INTO {0} VALUES (?, ?, ?) ".format(self.graph_nodes)
@@ -91,7 +91,7 @@ class Graph(object):
                 row_count += 1
                 uid = self.getNewUid()                   #assign a new sequential id
                 self.dictionary[entities[i]] = uid           #keep it in memory
-                tuples.append((uid, entities[i], layer))     #save it to database (id, name, layer)
+                tuples.append((uid, entities[i], year))     #save it to database (id, name, year)
         c.executemany(query, tuples)
         return row_count    #return number of inserted nodes
 
