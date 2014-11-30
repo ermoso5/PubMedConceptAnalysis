@@ -53,7 +53,7 @@ class Processor(object):
         self.ner = Adeptner()
             
     
-    def folderToGraph(self, root="corpus", target_folder=None, graph=None, ner=False, stemming='medium', min_word_length=1):
+    def folderToGraph(self, root="corpus", target_folder=None, graph=None, ner=False, lemmatize=True, stemming='medium', min_word_length=1):
         """
         Creates a target folder and related subdirectories according to the structure of the root folder. 
         Then, processes all the textual files in the root structure and store the results in the target structure.
@@ -92,7 +92,7 @@ class Processor(object):
                 for file in os.listdir(dir_origin):             #open textual files under year folder and process them
                     if file.endswith(".txt"):               
                         string = self.fileToString(os.path.join(dir_origin, file))              #put file into string
-                        entities = self.processString(string, ner, stemming, min_word_length)
+                        entities = self.processString(string, ner, lemmatize, stemming, min_word_length)
                         
                         if entities: 
                             if DEBUG:
@@ -109,7 +109,7 @@ class Processor(object):
         print("added {0} edges to {1} ".format(count_edges, graph.graph_edges))   
 
 
-    def processString(self, string, ner=False, stemming=None, min_word_length=1):
+    def processString(self, string, ner=False, lemmatize=True, stemming=None, min_word_length=1):
         """ 
         Apply prerpocessing to a string.
         :ner                Use named entity recognition (if True) or text preprocessing (if False) to extract entities.
@@ -129,6 +129,8 @@ class Processor(object):
         if entities:    
             for ent in entities:
                 ent = self.cleanText(ent)                             #remove punctuation and numbers
+                if lemmatize:
+                    ent = self.lemmatizeText(ent)                       #perform lemmatization
                 if stemming:
                     ent = self.stemText(ent, intensity=stemming)        #perform stemming
                 if min_word_length > 0:
@@ -163,6 +165,16 @@ class Processor(object):
         """Apply Named Entity Recognition from Stanford's web service ADEPTA."""
         return self.ner.getTerms(text).get('MEDTERM')
 
+
+    def lemmatizeText(self, text):
+        """Apply lemmatization to a string."""
+        l = stem.WordNetLemmatizer()
+        bow = text.split(" ")           #this creates a bag of words
+        result = []
+        for word in bow:
+            result.append(l.lemmatize(word))
+        return ' '.join(result)
+         
 
     def stemText(self, text, intensity):    
         """Apply stemming to a string according to :intesity."""

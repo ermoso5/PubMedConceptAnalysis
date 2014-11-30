@@ -26,7 +26,8 @@ def main(parsing=True, processing=True, finalize=True):
                          graph=g,               #pass the graph object
                          target_folder=None,    #don't store intermediate files #"processed"
                          ner=True,
-                         stemming='heavy', 
+                         lemmatize=True, #False,
+                         stemming=None, #'heavy', 
                          min_word_length=5)
         print("Processsing done in {0}s".format(time.process_time()-start))
         
