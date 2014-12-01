@@ -52,7 +52,8 @@ class Parser:
                     newPub.write(block[l-2])
                     newPub.close()
                     count+=1
-                    print(count)
+                    if DEBUG:
+                        print(count)
             if length > 1:
                 rest = parts[length-1]
             else:
@@ -91,7 +92,8 @@ class Parser:
                 pmid = doc[0].strip()
 
                 index = self.findOneOf(doc, keywordField)
-                print(pmid)
+                if DEBUG:
+                    print(pmid)
                 if index != -1:
                     i = index
                     while i < len(doc) and doc[i].startswith("MH"):
