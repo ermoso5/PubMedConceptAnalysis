@@ -91,9 +91,10 @@ class Parser:
                 pmid = doc[0].strip()
 
                 index = self.findOneOf(doc, keywordField)
+                print(pmid)
                 if index != -1:
                     i = index
-                    while doc[i].startswith("MH"):
+                    while i < len(doc) and doc[i].startswith("MH"):
                         abstract += doc[i+1]
                         i+=2
 
