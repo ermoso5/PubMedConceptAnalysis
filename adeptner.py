@@ -1,5 +1,6 @@
 import ner
 import requests
+import json
 
 __author__ = ['Zara', 'Marcello']
 
@@ -25,7 +26,7 @@ class Adeptner:
         """Gets entities out of a string. It uses a local NER server or default to an online NER """
         if self.ner_online == 'online':
             ADEPT_url="http://dust.stanford.edu:8080/ADEPTRest/rest/annotate"
-            payload = {"adeptifyThis" : text}
+            payload = {"adeptifyThis" : string}
             r=requests.post(ADEPT_url, data=payload)
             data = json.loads(r.text)
             result = []
