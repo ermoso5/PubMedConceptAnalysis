@@ -26,7 +26,7 @@ class termFilter(object):
 
         countBefore = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
 
-        c.execute("DELETE FROM {0} WHERE EXISTS (select id from {1} where id= node1) or EXISTS (select id from {1} where id= node2)".format(self.graph_weights, self.nodeView))
+        c.execute("DELETE FROM {0} WHERE EXISTS (select id from {1} where (id= node1 or id=node2))".format(self.graph_weights, self.nodeView))
 
         countAfter = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
 
