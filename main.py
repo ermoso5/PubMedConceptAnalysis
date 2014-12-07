@@ -9,7 +9,7 @@ DEBUG = True
 
 def main(parsing=True, processing=True, finalize=True):
        
-    g = Graph(graph_name="graph4")
+    g = Graph(graph_name="graph1")
        
     #STEP 1: parsing
     if parsing:
@@ -46,8 +46,7 @@ def main(parsing=True, processing=True, finalize=True):
     t.createFilteredViewFrom("test_graph.db", "graph1_weights") 
     print("Filtering done in {0}s".format(time.process_time()-start))
      
-     
-     
+    
     if DEBUG:
         g.testGraph()
 
