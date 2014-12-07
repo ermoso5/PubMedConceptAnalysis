@@ -43,7 +43,7 @@ def main(parsing=True, processing=True, finalize=True):
     #STEP 4: filter out stuff
     start = time.process_time()
     t = termFilter()
-    t.createFilteredViewFrom("test_graph.db", "graph1_weights") 
+    t.createFilteredViewFrom("test_graph.db", "graph1_nodes", "graph1_weights")
     print("Filtering done in {0}s".format(time.process_time()-start))
      
     

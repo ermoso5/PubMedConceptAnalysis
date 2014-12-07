@@ -5,25 +5,34 @@ __author__ = "Zara"
 
 class termFilter(object):
 
-    def createFilteredViewFrom(self, SQL_DB, tableName, k=5): #graph1_weights
+    def createFilteredViewFrom(self, SQL_DB, nodes, weights, k=5): #graph1_weights
         self.sql_db = SQL_DB
-        self.graph_weights = tableName
+        self.graph_nodes = nodes
+        self.graph_weights = weights
+        self.nodeView = "filteredNodesView"
 
         self.connect()
         c = self.conn.cursor()
 
-        count = c.execute("SELECT count(*) FROM {0}".format(self.graph_weights))
+        count = c.execute("SELECT count(*) FROM {0}".format(self.graph_nodes))
         total = count.fetchone()[0]
         k_percent = math.ceil(total*k/100)
 
         #drop the view if exists
-        c.execute("DROP VIEW IF EXISTS filteredWeightsView")
+        c.execute("DROP VIEW IF EXISTS {}".format(self.nodeView))
 
-        #create view from the table dsicarding top k% and bottom k%
-        c.execute("CREATE VIEW filteredWeightsView AS SELECT node1, node2, weight FROM {0} LIMIT {1}, {2}".format(self.graph_weights, k_percent, total-2*k_percent ))
+        #create view from the table discarding top k% and bottom k%
+        c.execute("CREATE VIEW {3} AS SELECT id, term, year FROM {0} LIMIT {1}, {2}".format(self.graph_nodes, k_percent, total-2*k_percent, self.nodeView ))
+
+        countBefore = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
+
+        c.execute("DELETE FROM {0} WHERE EXISTS (select id from {1} where id= node1) or EXISTS (select id from {1} where id= node2)".format(self.graph_weights, self.nodeView))
+
+        countAfter = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
 
         self.close()
-        return "filteredWeightsView"
+        print(str(k_percent) + " nodes were deleted")
+        print(str(countBefore-countAfter) + " edges were deleted")
 
 
     def connect(self):
