@@ -12,7 +12,7 @@ class termFilter(object):
         self.connect()
         c = self.conn.cursor()
 
-        count = c.execute("SELECT count(*) FROM {0}".format("graph1_weights"))
+        count = c.execute("SELECT count(*) FROM {0}".format(self.graph_weights))
         total = count.fetchone()[0]
         k_percent = math.ceil(total*k/100)
 
