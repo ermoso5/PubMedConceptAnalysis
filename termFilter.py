@@ -26,7 +26,7 @@ class termFilter(object):
         c.execute("CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ((SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"
                     .format(self.nodeView, self.graph_weights, k_percent, total-2*k_percent))
 
-        c.execute("CREATE VIEW {2} AS Select distinct * from (select node1, node2, w.weight from {0} as w where exists (select * from {1} where node=w.node1 or node =w.node2))".format(self.graph_weights, self.nodeView, "filteredEdges"))
+        c.execute("CREATE VIEW {2} AS Select distinct * from (select node1, node2, w.weight from {0} as w join {1} as n on w.node1 = n.node union select node1, node2, w.weight from {0} as w join {1} as n on w.node2 = n.node)".format(self.graph_weights, self.nodeView, "filteredEdges"))
         countBefore = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
 
         #c.execute("DELETE FROM {0} WHERE NOT EXISTS (select node from {1} where (node= node1 or node=node2))".format(self.graph_weights, self.nodeView))
