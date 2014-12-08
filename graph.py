@@ -133,7 +133,7 @@ class Graph(object):
         
     def createFilteredViewFrom(self, k=5):
         self.nodeView = "filteredNodeView"
-        self.edgeView = "filteredEdges"
+        self.edgeView = "filteredEdgeView"
 
         self.connect()
         c = self.conn.cursor()
