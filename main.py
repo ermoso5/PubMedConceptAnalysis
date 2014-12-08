@@ -36,7 +36,7 @@ def main(parsing=False, processing=False, finalize=True):
     if finalize:
         start = time.process_time()
         g.compressGraph()
-        g.createFilteredViewFrom(k=10)
+        g.createFilteredView(k=10)
         print("Finalization done in {0}s".format(time.process_time()-start))
 
     if DEBUG:
