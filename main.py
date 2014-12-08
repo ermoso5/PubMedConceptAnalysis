@@ -7,7 +7,7 @@ from termFilter import termFilter
 
 DEBUG = True
 
-def main(parsing=True, processing=True, finalize=True):
+def main(parsing=False, processing=True, finalize=True):
        
     g = Graph(graph_name="graph1")
        
@@ -23,7 +23,7 @@ def main(parsing=True, processing=True, finalize=True):
     if processing:
         start = time.process_time()
         pp = Processor()
-        pp.folderToGraph(root="corpus", 
+        pp.folderToGraph(root="corpus",
                          graph=g,               #pass the graph object
                          target_folder=None,    #don't store intermediate files #"processed"
                          ner=True,
@@ -37,16 +37,9 @@ def main(parsing=True, processing=True, finalize=True):
     if finalize:
         start = time.process_time()
         g.compressGraph()
+        g.createFilteredViewFrom(k=10)
         print("Finalization done in {0}s".format(time.process_time()-start))
-       
-    
-    #STEP 4: filter out stuff
-    start = time.process_time()
-    t = termFilter()
-    t.createFilteredViewFrom("test_graph.db", "graph1_nodes", "graph1_weights")
-    print("Filtering done in {0}s".format(time.process_time()-start))
-     
-    
+
     if DEBUG:
         g.testGraph()
 
