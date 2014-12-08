@@ -3,7 +3,7 @@ import sqlite3
 import math
 
 
-__author__ = ["Marcello Benedetti","Zara Alaverdyan", "Falitokiniaina Rabearison"]
+__author__ = ["Marcello Benedetti", "Zara Alaverdyan", "Falitokiniaina Rabearison"]
 __status__ = "Prototype"
 
 
@@ -131,7 +131,8 @@ class Graph(object):
         self.commit()
         self.close()
         
-    def createFilteredViewFrom(self, k=5):
+        
+    def createFilteredView(self, k=5):
         self.nodeView = "filteredNodeView"
         self.edgeView = "filteredEdgeView"
 
@@ -149,13 +150,15 @@ class Graph(object):
         #create view of node frequencies discarding top k% and bottom k%
         c.execute("CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ((SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"
                     .format(self.nodeView, self.graph_weights, k_percent, total-2*k_percent))
-
+        self.commit()
+        
         c.execute("CREATE VIEW {2} AS Select distinct * from (select node1, node2, w.weight from {0} as w join {1} as n on w.node1 = n.node union select node1, node2, w.weight from {0} as w join {1} as n on w.node2 = n.node)".format(self.graph_weights, self.nodeView, self.edgeView))
-
+        self.commit()
+        
         countBefore = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
         countAfter = c.execute("SELECT COUNT(*) FROM {0}".format(self.edgeView)).fetchone()[0]
 
-        self.conn.commit()
+        self.commit()
         self.close()
         print(str(k_percent) + " nodes were deleted")
         print(str(countBefore-countAfter) + " edges were deleted")
