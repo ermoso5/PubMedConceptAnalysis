@@ -3,11 +3,10 @@ import time
 from dataparser import Parser
 from processor import Processor
 from graph import Graph
-from termFilter import termFilter 
 
 DEBUG = True
 
-def main(parsing=False, processing=True, finalize=True):
+def main(parsing=False, processing=False, finalize=True):
        
     g = Graph(graph_name="graph1")
        
