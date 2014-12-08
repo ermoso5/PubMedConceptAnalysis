@@ -31,6 +31,7 @@ class termFilter(object):
 
         countAfter = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
 
+        self.conn.commit()
         self.close()
         print(str(k_percent) + " nodes were deleted")
         print(str(countBefore-countAfter) + " edges were deleted")
