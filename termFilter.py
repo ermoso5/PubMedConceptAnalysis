@@ -5,11 +5,11 @@ __author__ = "Zara"
 
 class termFilter(object):
 
-    def createFilteredViewFrom(self, SQL_DB, nodes, weights, k=5): #graph1_weights
+    def createFilteredViewFrom(self, SQL_DB, nodes, weights, k=5):
         self.sql_db = SQL_DB
         self.graph_nodes = nodes
         self.graph_weights = weights
-        self.nodeView = "filteredNodesView"
+        self.nodeView = "filteredNodeView"
 
         self.connect()
         c = self.conn.cursor()
@@ -21,12 +21,13 @@ class termFilter(object):
         #drop the view if exists
         c.execute("DROP VIEW IF EXISTS {}".format(self.nodeView))
 
-        #create view from the table discarding top k% and bottom k%
-        c.execute("CREATE VIEW {3} AS SELECT id, term, year FROM {0} LIMIT {1}, {2}".format(self.graph_nodes, k_percent, total-2*k_percent, self.nodeView ))
+        #create view of node frequencies discarding top k% and bottom k%
+        c.execute("CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ((SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"
+                    .format(self.nodeView, self.graph_weights, k_percent, total-2*k_percent))
 
         countBefore = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
 
-        c.execute("DELETE FROM {0} WHERE NOT EXISTS (select id from {1} where (id= node1 or id=node2))".format(self.graph_weights, self.nodeView))
+        c.execute("DELETE FROM {0} WHERE NOT EXISTS (select node from {1} where (node= node1 or node=node2))".format(self.graph_weights, self.nodeView))
 
         countAfter = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
 
@@ -47,4 +48,4 @@ class termFilter(object):
         self.conn.close()
 
 #usage
-#termFilter().createFilteredViewFrom("test_graph.db", "graph1_weights")
+#termFilter().createFilteredViewFrom("test_graph.db", "graph1_nodes", "graph1_weights")
