@@ -8,7 +8,7 @@ DEBUG = True
 
 def main(parsing=True, processing=True, finalize=True):
        
-    g = Graph(graph_name="graph5")
+    g = Graph(graph_name="graph")
        
     #STEP 1: parsing
     if parsing:
@@ -37,6 +37,7 @@ def main(parsing=True, processing=True, finalize=True):
         start = time.process_time()
         g.compressTables()
         g.createFilteredView(percentage=10)
+        g.normalizeWeights()
         print("Finalization done in {0}s".format(time.process_time()-start))
 
 

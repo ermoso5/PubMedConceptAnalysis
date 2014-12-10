@@ -19,6 +19,10 @@ class Graph(object):
         self.graph_weights = graph_name + "_weights"
         self.temp_time_series = graph_name + "_temp_time_series"
         self.time_series = graph_name + "_time_series"
+        self.nodeView = graph_name + "_filtered_nodes_view"
+        self.edgeView = graph_name + "_filtered_edges_view"
+        self.bigraph_norm = graph_name + "_bi_norm"
+
 
         self.dictionary = {}
         self.last_uid = 0
@@ -50,6 +54,11 @@ class Graph(object):
             if len(result.fetchall()) > 0:
                 c.execute("DROP TABLE {0}".format(self.time_series))
             c.execute("CREATE TABLE {0} (id, year, frequency)".format(self.time_series))
+
+            result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.bigraph_norm,))
+            if len(result.fetchall()) > 0:
+                c.execute("DROP TABLE {0}".format(self.bigraph_norm))
+            c.execute("CREATE TABLE {0} (node1, node2, weight)".format(self.bigraph_norm))
 
             self.conn.commit()
 
@@ -165,13 +174,14 @@ class Graph(object):
         query = "INSERT INTO {0} VALUES (?,?,?) ".format(self.time_series)
         c.executemany(query, tuples)
         self.commit()
+        
+        #c.execute("DROP TABLE {0}".format(self.graph_edges))
+        #c.execute("DROP TABLE {0}".format(self.temp_time_series))
+        #self.commit()     
         self.close()
 
 
     def createFilteredView(self, percentage=10):
-        self.nodeView = "filteredNodeView"
-        self.edgeView = "filteredEdgeView"
-
         self.connect()
         c = self.conn.cursor()
 
@@ -203,29 +213,6 @@ class Graph(object):
         print(str(countBefore - countAfter) + " edges were deleted")
 
 
-    def testGraph(self):
-        """Print some rows from the graph table."""
-        self.connect()
-        c = self.conn.cursor()
-        query = "SELECT * FROM {0} LIMIT 20".format(self.graph_nodes)
-        result = c.execute(query)
-        print("SOME NODES")
-        for row in result:
-            print(row)
-        print("-" * 80)
-        print("SOME WEIGHTS")
-        query = "SELECT * FROM {0} LIMIT 20".format(self.graph_weights)
-        result = c.execute(query)
-        for row in result:
-            print(row)
-        print("-" * 80)
-        print("SOME TIME SERIES")
-        query = "SELECT * FROM {0} LIMIT 20".format(self.time_series)
-        result = c.execute(query)
-        for row in result:
-            print(row)
-        self.close()
-
     def computeConceptSimilarity(self, concept1, concept2):
         self.connect()
         c = self.conn.cursor()
@@ -234,6 +221,8 @@ class Graph(object):
             "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.time_series, concept1)).fetchall()
         concept2_time_series = c.execute(
             "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.time_series, concept2)).fetchall()
+
+        self.close()
 
         i = j = 0
         sim = 0
@@ -269,6 +258,51 @@ class Graph(object):
             j += 1
 
         return sim/(math.sqrt(norm_concept1 * norm_concept2))
+        
+    
+    def normalizeWeights(self):
+        self.connect()
+        c = self.conn.cursor()
+        res1 = c.execute("SELECT * FROM {0}".format(self.edgeView)).fetchall()
+        tuples = [] 
+        for edge in res1:
+            sum_outweights = c.execute("SELECT sum(weight) as weight FROM {0} where node1 = {1} ".format(self.edgeView, edge[0])).fetchone()[0]
+            norm_weight1 = edge[2] / sum_outweights
+            sum_outweights = c.execute("SELECT sum(weight) as weight FROM {0} where node1 = {1} ".format(self.edgeView, edge[1])).fetchone()[0]
+            norm_weight2 = edge[2] / sum_outweights
+            
+            tuples.append((edge[0], edge[1], norm_weight1))
+            tuples.append((edge[1], edge[0], norm_weight2))
+            
+        query = "INSERT INTO {0} VALUES (?,?,?) ".format(self.bigraph_norm)
+        c.executemany(query, tuples)
+        self.commit()
+        self.close()
 
+
+    def testGraph(self):
+        """Print some rows from the graph table."""
+        self.connect()
+        c = self.conn.cursor()
+        query = "SELECT * FROM {0} LIMIT 20".format(self.graph_nodes)
+        result = c.execute(query)
+        print("SOME NODES")
+        for row in result:
+            print(row)
+        print("-" * 80)
+        print("SOME NORMALIZED WEIGHTS")
+        query = "SELECT * FROM {0} LIMIT 20".format(self.bigraph_norm)
+        result = c.execute(query)
+        for row in result:
+            print(row)
+        print("-" * 80)
+        print("SOME TIME SERIES")
+        query = "SELECT * FROM {0} LIMIT 20".format(self.time_series)
+        result = c.execute(query)
+        for row in result:
+            print(row)
+        self.close()
+        
+        
 # if __name__=="__main__":
 #    debug()
