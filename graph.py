@@ -19,6 +19,8 @@ class Graph(object):
         self.graph_nodes = graph_name + "_nodes"
         self.graph_edges = graph_name + "_edges"
         self.graph_weights = graph_name + "_weights"
+        self.temp_time_series = graph_name + "_temp_time_series"
+        self.time_series = graph_name + "_time_series"
         
         self.dictionary = {}
         self.last_uid = 0
@@ -40,6 +42,16 @@ class Graph(object):
             if len(result.fetchall()) > 0:
                 c.execute("DROP TABLE {0}".format(self.graph_weights))
             c.execute("CREATE TABLE {0} (node1, node2, weight)".format(self.graph_weights))
+
+            result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.temp_time_series,)) 
+            if len(result.fetchall()) > 0:
+                c.execute("DROP TABLE {0}".format(self.temp_time_series))
+            c.execute("CREATE TABLE {0} (id, year)".format(self.temp_time_series)) 
+
+            result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.time_series,)) 
+            if len(result.fetchall()) > 0:
+                c.execute("DROP TABLE {0}".format(self.time_series))
+            c.execute("CREATE TABLE {0} (id, year, frequency)".format(self.time_series)) 
 
             self.conn.commit()
        
@@ -78,6 +90,8 @@ class Graph(object):
         count_nodes = self.updateNodes(entities, year)
         # add new edges
         count_edges = self.updateEdges(entities)
+        # add time series
+        self.updateTimeSeries(entities, year)
         return count_nodes, count_edges
         
     
@@ -114,25 +128,49 @@ class Graph(object):
         c.executemany(query, tuples)
         return row_count        #return number of inserted edges
 
+        
+    def updateTimeSeries(self, entities, year):
+        """Update temp time series table."""
+        c = self.conn.cursor()
+        query = "INSERT INTO {0} VALUES (?, ?) ".format(self.temp_time_series)
+        row_count = 0
+        tuples = []
+        for i in range(len(entities)):
+            uid = self.dictionary.get(entities[i])      #get the id
+            tuples.append((uid, year))  
+        c.executemany(query, tuples)
+        return row_count                                    #return number of occurrences
 
-    def compressGraph(self):
-        """ Update the weight table and compress the edges."""
+
+    def compressTables(self):
+        """ Aggregate info into weight table and time series table."""
         self.connect()
         c = self.conn.cursor()
         tuples = []
         query = "DELETE FROM {0}".format(self.graph_weights)
         c.execute(query)
-        query = "SELECT node1, node2, COUNT(*) FROM {0} GROUP BY node1, node2 ".format(self.graph_edges)
+        query = "SELECT node1, node2, COUNT() FROM {0} GROUP BY node1, node2 ".format(self.graph_edges)
         result = c.execute(query)
         for row in result:
             tuples.append(row)
         query = "INSERT INTO {0} VALUES (?,?,?) ".format(self.graph_weights)
         c.executemany(query, tuples)
         self.commit()
+     
+        tuples = []
+        query = "DELETE FROM {0}".format(self.time_series)
+        c.execute(query)
+        query = "SELECT id, year, COUNT() FROM {0} GROUP BY id, year ".format(self.temp_time_series)
+        result = c.execute(query)
+        for row in result:
+            tuples.append(row)
+        query = "INSERT INTO {0} VALUES (?,?,?) ".format(self.time_series)
+        c.executemany(query, tuples)
+        self.commit()      
         self.close()
         
         
-    def createFilteredView(self, k=5):
+    def createFilteredView(self, percentage=10):
         self.nodeView = "filteredNodeView"
         self.edgeView = "filteredEdgeView"
 
@@ -141,7 +179,7 @@ class Graph(object):
 
         count = c.execute("SELECT count(*) FROM {0}".format(self.graph_nodes))
         total = count.fetchone()[0]
-        k_percent = math.ceil(total*k/100)
+        k_percent = math.ceil(total*percentage/100)
 
         #drop the view if exists
         c.execute("DROP VIEW IF EXISTS {}".format(self.nodeView))
@@ -174,15 +212,16 @@ class Graph(object):
         for row in result: 
             print(row)
         print("-" * 80)
-        print("SOME EDGES")
-        query = "SELECT * FROM {0} LIMIT 20".format(self.graph_edges)
-        result = c.execute(query)
-        for row in result: 
-            print(row)
         print("SOME WEIGHTS")
         query = "SELECT * FROM {0} LIMIT 20".format(self.graph_weights)
         result = c.execute(query)
         for row in result:
+            print(row)
+        print("-" * 80)
+        print("SOME TIME SERIES")
+        query = "SELECT * FROM {0} LIMIT 20".format(self.time_series)
+        result = c.execute(query)
+        for row in result: 
             print(row)
         self.close()
                 

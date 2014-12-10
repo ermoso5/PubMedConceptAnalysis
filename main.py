@@ -6,9 +6,9 @@ from graph import Graph
 
 DEBUG = True
 
-def main(parsing=False, processing=False, finalize=True):
+def main(parsing=True, processing=True, finalize=True):
        
-    g = Graph(graph_name="graph1")
+    g = Graph(graph_name="graph5")
        
     #STEP 1: parsing
     if parsing:
@@ -32,12 +32,13 @@ def main(parsing=False, processing=False, finalize=True):
         print("Processsing done in {0}s".format(time.process_time()-start))
         
         
-    #STEP 3: finalization, creates a new table with the weights 
+    #STEP 3: finalization
     if finalize:
         start = time.process_time()
-        g.compressGraph()
-        g.createFilteredView(k=10)
+        g.compressTables()
+        g.createFilteredView(percentage=10)
         print("Finalization done in {0}s".format(time.process_time()-start))
+
 
     if DEBUG:
         g.testGraph()
