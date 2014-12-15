@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import math
+import networkx as nx
 
 
 __author__ = ["Marcello Benedetti", "Zara Alaverdyan", "Falitokiniaina Rabearison"]
@@ -256,7 +257,6 @@ class Graph(object):
         while j < len(concept2_time_series):
             norm_concept2 += math.pow(concept2_time_series[j][1], 2)
             j += 1
-
         return sim/(math.sqrt(norm_concept1 * norm_concept2))
         
     
@@ -279,6 +279,26 @@ class Graph(object):
         self.commit()
         self.close()
 
+    def a_star(self, source, target):
+        weighted_oriented_edges = []
+        self.connect()
+        c = self.conn.cursor()
+        query = "SELECT * FROM {0}".format(self.bigraph_norm)
+        result = c.execute(query)
+        for row in result:
+            weighted_oriented_edges.append(row)
+        self.close()
+        weighted_oriented_edges = [[int(y) for y in x] for x in weighted_oriented_edges]    #convert str into int
+        #print(weighted_oriented_edges)
+
+        nxG = nx.DiGraph()
+        nxG.add_weighted_edges_from(weighted_oriented_edges)
+        path = nx.astar_path(nxG, source, target, heuristic = self.heuristicFunction)
+        length = nx.astar_path_length(nxG, source,target, heuristic = self.heuristicFunction)
+        return path, length
+
+    def heuristicFunction(self,concept1,concept2):
+        return 1.0 - self.computeConceptSimilarity(concept1,concept2)
 
     def testGraph(self):
         """Print some rows from the graph table."""

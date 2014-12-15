@@ -6,7 +6,7 @@ from graph import Graph
 
 DEBUG = True
 
-def main(parsing=True, processing=True, finalize=True):
+def main(parsing=True, processing=True, finalize=True, analysis=True):
        
     g = Graph(graph_name="graph")
        
@@ -39,6 +39,14 @@ def main(parsing=True, processing=True, finalize=True):
         g.createFilteredView(percentage=10)
         g.normalizeWeights()
         print("Finalization done in {0}s".format(time.process_time()-start))
+
+    if analysis:
+        concept1_source = 1 #just exampleID
+        concept2_target = 5
+        path, length = g.a_star(concept1_source,concept2_target)
+        print('Path from {0} to {1}:'.format(concept1_source,concept2_target))
+        print(path)
+        print('Path length:{}'.format(length))
 
 
     if DEBUG:
