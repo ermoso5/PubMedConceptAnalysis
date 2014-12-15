@@ -217,8 +217,6 @@ class Graph(object):
         self.commit()
         ## "CREATE VIEW {0} AS SELECT DISTINCr2 =T * FROM (SELECT n1.node1, n1.node2, w.weight FROM {1} w JOIN {2} n1 ON w.node1 = n1.node UNION SELECT n2.node1, n2.node2, w.weight FROM {1} w JOIN {2} n2 on w.node2 = n2.node)".format(
             
-            
-
         countBefore = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
         countAfter = c.execute("SELECT COUNT(*) FROM {0}".format(self.filtered_edges_view)).fetchone()[0]
 
