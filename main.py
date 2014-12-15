@@ -3,10 +3,11 @@ import time
 from dataparser import Parser
 from processor import Processor
 from graph import Graph
+from analysis import Analysis
 
 DEBUG = True
 
-def main(parsing=False, processing=False, finalize=True):
+def main(parsing=False, processing=False, finalize=False, analysis=True):
        
     g = Graph(graph_name="graph")
        
@@ -39,6 +40,21 @@ def main(parsing=False, processing=False, finalize=True):
         g.createFilteredView(percentage=5)
         g.normalizeWeights()
         print("Finalization done in {0}s".format(time.process_time()-start))
+
+
+    #STEP 4: analysis
+    if analysis:
+        concept1_source = 'benzodiazepine receptor sensitivity' #just exampleID
+        concept2_target = 'cancer'
+                        
+        an = Analysis(g)
+        path, length = an.a_star(
+            an.getIdFromConcept(concept1_source)[0][0], 
+            an.getIdFromConcept(concept2_target)[0][0])
+        
+        print('Path from {0} to {1}:'.format(concept1_source,concept2_target))
+        print(path)
+        print('Path length:{}'.format(length))
 
 
     if DEBUG:

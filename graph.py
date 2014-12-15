@@ -2,6 +2,7 @@ import os
 import sqlite3
 import math
 
+
 __author__ = ["Marcello Benedetti", "Zara Alaverdyan", "Falitokiniaina Rabearison"]
 __status__ = "Prototype"
 
@@ -21,7 +22,6 @@ class Graph(object):
         self.filtered_nodes_view = graph_name + "_filtered_nodes_view"
         self.filtered_edges_view = graph_name + "_filtered_edges_view"
         self.bigraph_norm = graph_name + "_bi_norm"
-
 
         self.dictionary = {}
         self.last_uid = 0
@@ -208,7 +208,7 @@ class Graph(object):
         #create view of node frequencies discarding top k% and bottom k%
         c.execute(
             "CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ((SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"
-            .format(self.filtered_nodes_view, self.graph_weights, k_percent, total - 2 * k_percent)) #??????????
+            .format(self.filtered_nodes_view, self.graph_weights, k_percent, total - 2* k_percent)) #??????????
         self.commit()
 
         c.execute(
@@ -227,55 +227,6 @@ class Graph(object):
         print(str(k_percent) + " nodes are not relevant")
         print(str(countBefore - countAfter) + " edges are not relevant")
 
-
-    def computeConceptSimilarity(self, concept1, concept2):
-        self.connect()
-        c = self.cursor()
-
-        concept1_time_series = c.execute(
-            "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.time_series, concept1)).fetchall()
-        concept2_time_series = c.execute(
-            "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.time_series, concept2)).fetchall()
-        
-        self.close()
-        #print(concept1_time_series)
-        #print(concept2_time_series)
-
-        i = j = 0
-        sim = 0
-        norm_concept1 = 0
-        norm_concept2 = 0
-
-        while i < len(concept1_time_series) and j < len(concept2_time_series):
-            year1 = concept1_time_series[i][0]
-            year2 = concept2_time_series[j][0]
-
-            freq_concept1 = concept1_time_series[i][1]
-            freq_concept2 = concept2_time_series[j][1]
-
-            if year1 == year2:
-                sim += freq_concept1 * freq_concept2
-                norm_concept1 += math.pow(freq_concept1, 2)
-                norm_concept2 += math.pow(freq_concept2, 2)
-                i += 1
-                j += 1
-            elif year1 > year2:
-                norm_concept2 += math.pow(freq_concept2, 2)
-                j += 1
-            else:
-                norm_concept1 += math.pow(freq_concept1, 2)
-                i += 1
-
-        while i < len(concept1_time_series):
-            norm_concept1 += math.pow(concept1_time_series[i][1], 2)
-            i += 1
-
-        while j < len(concept2_time_series):
-            norm_concept2 += math.pow(concept2_time_series[j][1], 2)
-            j += 1
-
-        return sim/(math.sqrt(norm_concept1 * norm_concept2))
-        
     
     def normalizeWeights(self):
         self.connect()
