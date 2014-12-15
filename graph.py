@@ -201,8 +201,8 @@ class Graph(object):
         self.commit()
 
         c.execute(
-            "CREATE VIEW {2} AS Select distinct * from (select node1, node2, w.weight from {0} as w join {1} as n on w.node1 = n.node union select node1, node2, w.weight from {0} as w join {1} as n on w.node2 = n.node)".format(
-                self.graph_weights, self.nodeView, self.edgeView))
+            "CREATE VIEW {0} AS Select distinct * from (select node1, node2, w.weight from {1} as w join {2} as n on w.node1 = n.node union select node1, node2, w.weight from {1} as w join {2} as n on w.node2 = n.node)"
+            .format(self.edgeView, self.graph_weights, self.nodeView ))
         self.commit()
 
         countBefore = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
@@ -232,7 +232,7 @@ class Graph(object):
 
         while i < len(concept1_time_series) and j < len(concept2_time_series):
             year1 = concept1_time_series[i][0]
-            year2 = concept2_time_series[i][0]
+            year2 = concept2_time_series[j][0]
 
             freq_concept1 = concept1_time_series[i][1]
             freq_concept2 = concept2_time_series[j][1]
