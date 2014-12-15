@@ -5,9 +5,6 @@ This class provides the preprocessing functions for the PubMed corpus:
 """
 
 import os
-import time
-import json
-
 from nltk import stem
 from adeptner import Adeptner
 from graph import Graph

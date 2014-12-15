@@ -6,7 +6,7 @@ from graph import Graph
 
 DEBUG = True
 
-def main(parsing=True, processing=True, finalize=True):
+def main(parsing=False, processing=False, finalize=True):
        
     g = Graph(graph_name="graph")
        
@@ -14,7 +14,7 @@ def main(parsing=True, processing=True, finalize=True):
     if parsing:
         start = time.process_time()
         par = Parser(outputdir="corpus")     
-        par.splitMedline(filename="small_medline.txt") #verybigmed.txt
+        par.splitMedline(filename="verybigmed.txt") #verybigmed.txt
         print("Parsing done in {0}s".format(time.process_time()-start))
         
         
@@ -36,7 +36,7 @@ def main(parsing=True, processing=True, finalize=True):
     if finalize:
         start = time.process_time()
         g.compressTables()
-        g.createFilteredView(percentage=10)
+        g.createFilteredView(percentage=5)
         g.normalizeWeights()
         print("Finalization done in {0}s".format(time.process_time()-start))
 

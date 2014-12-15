@@ -2,7 +2,6 @@ import os
 import sqlite3
 import math
 
-
 __author__ = ["Marcello Benedetti", "Zara Alaverdyan", "Falitokiniaina Rabearison"]
 __status__ = "Prototype"
 
@@ -19,8 +18,8 @@ class Graph(object):
         self.graph_weights = graph_name + "_weights"
         self.temp_time_series = graph_name + "_temp_time_series"
         self.time_series = graph_name + "_time_series"
-        self.nodeView = graph_name + "_filtered_nodes_view"
-        self.edgeView = graph_name + "_filtered_edges_view"
+        self.filtered_nodes_view = graph_name + "_filtered_nodes_view"
+        self.filtered_edges_view = graph_name + "_filtered_edges_view"
         self.bigraph_norm = graph_name + "_bi_norm"
 
 
@@ -29,7 +28,7 @@ class Graph(object):
 
         # create tables for nodes, edges and weights if they don't exist
         self.connect()
-        c = self.conn.cursor()
+        c = self.cursor()
         result = c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (self.graph_nodes,))
 
         if len(result.fetchall()) < 1:
@@ -82,8 +81,20 @@ class Graph(object):
         self.conn.commit()
 
 
+    def cursor(self):
+        return self.conn.cursor()
+
+
     def close(self):
         self.conn.close()
+
+
+    def sendQuery(self, query):
+        self.connect()
+        c = self.cursor()
+        result = c.execute(query).fetchall()
+        self.close()
+        return result
 
 
     def getNewUid(self):
@@ -104,7 +115,7 @@ class Graph(object):
 
     def updateNodes(self, entities, year):
         """Update in-memory dictionary and database node table with new nodes."""
-        c = self.conn.cursor()
+        c = self.cursor()
         query = "INSERT INTO {0} VALUES (?, ?, ?) ".format(self.graph_nodes)
         row_count = 0
         tuples = []
@@ -120,7 +131,7 @@ class Graph(object):
 
     def updateEdges(self, entities):
         """Update edge table with new edges."""
-        c = self.conn.cursor()
+        c = self.cursor()
         query = "INSERT INTO {0} VALUES (?, ?) ".format(self.graph_edges)
         row_count = 0
         tuples = []
@@ -138,7 +149,7 @@ class Graph(object):
 
     def updateTimeSeries(self, entities, year):
         """Update temp time series table."""
-        c = self.conn.cursor()
+        c = self.cursor()
         query = "INSERT INTO {0} VALUES (?, ?) ".format(self.temp_time_series)
         row_count = 0
         tuples = []
@@ -152,7 +163,7 @@ class Graph(object):
     def compressTables(self):
         """ Aggregate info into weight table and time series table."""
         self.connect()
-        c = self.conn.cursor()
+        c = self.cursor()
         tuples = []
         query = "DELETE FROM {0}".format(self.graph_weights)
         c.execute(query)
@@ -181,48 +192,54 @@ class Graph(object):
         self.close()
 
 
-    def createFilteredView(self, percentage=10):
+    def createFilteredView(self, percentage=5):
         self.connect()
-        c = self.conn.cursor()
+        c = self.cursor()
+        
+        # drop the view if exists
+        c.execute("DROP VIEW IF EXISTS {}".format(self.filtered_nodes_view))
+        c.execute("DROP VIEW IF EXISTS {}".format(self.filtered_edges_view))
+        self.commit()
 
         count = c.execute("SELECT count(*) FROM {0}".format(self.graph_nodes))
         total = count.fetchone()[0]
         k_percent = math.ceil(total * percentage / 100)
 
-        # drop the view if exists
-        c.execute("DROP VIEW IF EXISTS {}".format(self.nodeView))
-        c.execute("DROP VIEW IF EXISTS {}".format(self.edgeView))
-
         #create view of node frequencies discarding top k% and bottom k%
         c.execute(
             "CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ((SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"
-            .format(self.nodeView, self.graph_weights, k_percent, total - 2 * k_percent))
+            .format(self.filtered_nodes_view, self.graph_weights, k_percent, total - 2 * k_percent)) #??????????
         self.commit()
 
         c.execute(
-            "CREATE VIEW {2} AS Select distinct * from (select node1, node2, w.weight from {0} as w join {1} as n on w.node1 = n.node union select node1, node2, w.weight from {0} as w join {1} as n on w.node2 = n.node)".format(
-                self.graph_weights, self.nodeView, self.edgeView))
+            "CREATE VIEW {0} AS SELECT n1.node, n2.node, w.weight FROM {1} w JOIN {2} n1 ON w.node1 = n1.node JOIN {2} n2 ON w.node2 = n2.node"
+            .format(self.filtered_edges_view, self.graph_weights, self.filtered_nodes_view))
         self.commit()
+        ## "CREATE VIEW {0} AS SELECT DISTINCr2 =T * FROM (SELECT n1.node1, n1.node2, w.weight FROM {1} w JOIN {2} n1 ON w.node1 = n1.node UNION SELECT n2.node1, n2.node2, w.weight FROM {1} w JOIN {2} n2 on w.node2 = n2.node)".format(
+            
+            
 
         countBefore = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
-        countAfter = c.execute("SELECT COUNT(*) FROM {0}".format(self.edgeView)).fetchone()[0]
+        countAfter = c.execute("SELECT COUNT(*) FROM {0}".format(self.filtered_edges_view)).fetchone()[0]
 
         self.commit()
         self.close()
-        print(str(k_percent) + " nodes were deleted")
-        print(str(countBefore - countAfter) + " edges were deleted")
+        print(str(k_percent) + " nodes are not relevant")
+        print(str(countBefore - countAfter) + " edges are not relevant")
 
 
     def computeConceptSimilarity(self, concept1, concept2):
         self.connect()
-        c = self.conn.cursor()
+        c = self.cursor()
 
         concept1_time_series = c.execute(
             "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.time_series, concept1)).fetchall()
         concept2_time_series = c.execute(
             "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.time_series, concept2)).fetchall()
-
+        
         self.close()
+        #print(concept1_time_series)
+        #print(concept2_time_series)
 
         i = j = 0
         sim = 0
@@ -231,7 +248,7 @@ class Graph(object):
 
         while i < len(concept1_time_series) and j < len(concept2_time_series):
             year1 = concept1_time_series[i][0]
-            year2 = concept2_time_series[i][0]
+            year2 = concept2_time_series[j][0]
 
             freq_concept1 = concept1_time_series[i][1]
             freq_concept2 = concept2_time_series[j][1]
@@ -262,18 +279,19 @@ class Graph(object):
     
     def normalizeWeights(self):
         self.connect()
-        c = self.conn.cursor()
-        res1 = c.execute("SELECT * FROM {0}".format(self.edgeView)).fetchall()
+        c = self.cursor()
+        result = c.execute("SELECT node, weight FROM {0}".format(self.filtered_nodes_view))
+        outweights = dict(result.fetchall())
+        edges = c.execute("SELECT * FROM {0}".format(self.filtered_edges_view)).fetchall()
         tuples = [] 
-        for edge in res1:
-            sum_outweights = c.execute("SELECT sum(weight) as weight FROM {0} where node1 = {1} ".format(self.edgeView, edge[0])).fetchone()[0]
-            norm_weight1 = edge[2] / sum_outweights
-            sum_outweights = c.execute("SELECT sum(weight) as weight FROM {0} where node1 = {1} ".format(self.edgeView, edge[1])).fetchone()[0]
-            norm_weight2 = edge[2] / sum_outweights
-            
-            tuples.append((edge[0], edge[1], norm_weight1))
-            tuples.append((edge[1], edge[0], norm_weight2))
-            
+        for edge in edges:
+            if edge[0] in outweights and edge[1] in outweights:
+                norm_weight1 = edge[2] / float(outweights[edge[0]])
+                norm_weight2 = edge[2] / float(outweights[edge[1]])
+                tuples.append((edge[0], edge[1], norm_weight1))
+                tuples.append((edge[1], edge[0], norm_weight2))
+            else:
+                print(edge[0], " - ", edge[1])
         query = "INSERT INTO {0} VALUES (?,?,?) ".format(self.bigraph_norm)
         c.executemany(query, tuples)
         self.commit()
@@ -283,7 +301,7 @@ class Graph(object):
     def testGraph(self):
         """Print some rows from the graph table."""
         self.connect()
-        c = self.conn.cursor()
+        c = self.cursor()
         query = "SELECT * FROM {0} LIMIT 20".format(self.graph_nodes)
         result = c.execute(query)
         print("SOME NODES")
