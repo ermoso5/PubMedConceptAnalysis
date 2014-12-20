@@ -96,5 +96,5 @@ class LDA(object):
 if __name__ == "__main__":
     LDA().iterator()
     LDA().cluster_by_years()
-    # FetchTerms().fetch_time_series('chronic', 1)
+    FetchTerms().fetch_time_series('chronic', 1)
     # LDA().check_column_exists(graph_node, 'cluster')
