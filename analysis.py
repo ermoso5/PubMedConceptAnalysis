@@ -1,5 +1,6 @@
 import math
 import networkx as nx
+import scipy.stats as stats
 import matplotlib.pyplot as plt
 
 __author__ = ["Falitokiniaina Rabearison", "Zara Alaverdyan", "Marcello Benedetti"]
@@ -65,13 +66,10 @@ class Analysis:
         query = "SELECT * FROM {0}".format(self.graph.bigraph_norm)
         result = self.graph.sendQuery(query)
         for row in result:
-            if row[0] == 250:
-                print('ciaooooo')
             row = (row[0], row[1], 1/float(row[2]))
             weighted_oriented_edges.append(row)
         #weighted_oriented_edges = [[int(y) for y in x] for x in weighted_oriented_edges]    #convert str into int
         #print(weighted_oriented_edges)
-
         nxG = nx.DiGraph()
         nxG.add_weighted_edges_from(weighted_oriented_edges)
         path = nx.astar_path(nxG, source, target, heuristic = self.heuristicFunction)
@@ -80,10 +78,11 @@ class Analysis:
 
 
     def heuristicFunction(self, concept1, concept2):
-        return 1.0 / float(1e-8 + self.computeConceptSimilarity(concept1, concept2)) #smoothing?!
+        return 1.0 / float(1e-10 + self.klSimilarity(concept1, concept2))
+        #return 1.0 / float(1e-10 + self.cosineSimilarity(concept1, concept2))
 
 
-    def computeConceptSimilarity(self, concept1, concept2):
+    def cosineSimilarity(self, concept1, concept2):
         query1 = "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.graph.time_series, concept1)
         query2 = "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.graph.time_series, concept2)      
         concept1_time_series = self.graph.sendQuery(query1)
@@ -116,3 +115,33 @@ class Analysis:
             norm_concept2 += math.pow(concept2_time_series[j][1], 2)
             j += 1
         return sim/(math.sqrt(norm_concept1 * norm_concept2))
+       
+        
+    def klSimilarity(self, concept1, concept2):
+        query1 = "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.graph.time_series, concept1)
+        query2 = "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.graph.time_series, concept2)      
+        concept1_time_series = self.graph.sendQuery(query1)
+        concept2_time_series = self.graph.sendQuery(query2)
+        c1 = []
+        c2 = []
+        i = j = 0
+        while i < len(concept1_time_series) and j < len(concept2_time_series):
+            year1 = concept1_time_series[i][0]
+            year2 = concept2_time_series[j][0]
+            freq_concept1 = concept1_time_series[i][1] + 1 #smoothing
+            freq_concept2 = concept2_time_series[j][1] + 1
+            if year1 == year2:
+                c1.append(freq_concept1)
+                c2.append(freq_concept2)
+                i += 1
+                j += 1
+            elif year1 > year2:
+                c1.append(1)
+                c2.append(freq_concept2)
+                j += 1
+            elif year2 > year1:
+                c1.append(freq_concept1)
+                c2.append(1)           
+                i += 1
+        #print(c1) #print(c2)
+        return 1 - stats.entropy(c1, c2)
