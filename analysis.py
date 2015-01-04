@@ -61,7 +61,7 @@ class Analysis:
         return self.graph.sendQuery(query)
 
 
-    def a_star(self, source, target):
+    def a_star(self, source, target, similarity = 'cosine'):
         weighted_oriented_edges = []
         query = "SELECT * FROM {0}".format(self.graph.bigraph_norm)
         result = self.graph.sendQuery(query)
@@ -72,14 +72,19 @@ class Analysis:
         #print(weighted_oriented_edges)
         nxG = nx.DiGraph()
         nxG.add_weighted_edges_from(weighted_oriented_edges)
-        path = nx.astar_path(nxG, source, target, heuristic = self.heuristicFunction)
-        length = nx.astar_path_length(nxG, source,target, heuristic = self.heuristicFunction)
+        if similarity == 'cosine':
+            path = nx.astar_path(nxG, source, target, heuristic = self.heuristicFunctionCosine)
+            length = nx.astar_path_length(nxG, source,target, heuristic = self.heuristicFunctionCosine)
+        if similarity == 'kl':
+            path = nx.astar_path(nxG, source, target, heuristic = self.heuristicFunctionKl)
+            length = nx.astar_path_length(nxG, source,target, heuristic = self.heuristicFunctionKl)
         return path, length
 
+    def heuristicFunctionCosine(self, concept1, concept2):
+        return 1.0 / float(1e-10 + self.cosineSimilarity(concept1, concept2))
 
-    def heuristicFunction(self, concept1, concept2):
+    def heuristicFunctionKl(self, concept1, concept2):
         return 1.0 / float(1e-10 + self.klSimilarity(concept1, concept2))
-        #return 1.0 / float(1e-10 + self.cosineSimilarity(concept1, concept2))
 
 
     def cosineSimilarity(self, concept1, concept2):

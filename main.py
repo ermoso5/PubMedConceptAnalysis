@@ -15,7 +15,8 @@ def main(parsing=False, processing=False, finalize=False, analysis=True):
     if parsing:
         start = time.process_time()
         par = Parser(outputdir="corpus")     
-        par.splitMedline(filename="verybigmed.txt") #verybigmed.txt
+        #par.splitMedline(filename="verybigmed.txt") #verybigmed.txt
+        par.splitMedline(filename="small_medline.txt") #verybigmed.txt
         print("Parsing done in {0}s".format(time.process_time()-start))
         
         
@@ -44,18 +45,31 @@ def main(parsing=False, processing=False, finalize=False, analysis=True):
 
     #STEP 4: analysis
     if analysis:
-        concept1_source = 'benzodiazepine receptor sensitivity' #just exampleID
-        concept2_target = 'cancer'
-                        
-        an = Analysis(g)
-        path, length = an.a_star(
-            an.getIdFromConcept(concept1_source)[0][0], 
-            an.getIdFromConcept(concept2_target)[0][0])
-        
-        print('Path from {0} to {1}:'.format(concept1_source,concept2_target))
-        print(path)
-        print('Path length:{}'.format(length))
+        #concept1_source = 'benzodiazepine receptor sensitivity' #just exampleID
+        #concept2_target = 'cancer'
 
+        concept1_source = 'chronic' #just exampleID
+        concept2_target = 'therapy'
+
+        an = Analysis(g)
+        path_cosine_sim, length_cosine_sim = an.a_star(
+            an.getIdFromConcept(concept1_source)[0][0],
+            an.getIdFromConcept(concept2_target)[0][0], similarity = 'cosine')
+        path_kl_sim, length_kl_sim = an.a_star(
+            an.getIdFromConcept(concept1_source)[0][0],
+            an.getIdFromConcept(concept2_target)[0][0], similarity = 'kl')
+
+        print("Using Cosine Similarity :")
+        print('Path from {0} to {1}:'.format(concept1_source,concept2_target))
+        print(path_cosine_sim)
+        print('Path length:{}'.format(length_cosine_sim))
+
+        print("Using Kl Similarity :")
+        print('Path from {0} to {1}:'.format(concept1_source,concept2_target))
+        print(path_kl_sim)
+        print('Path length:{}'.format(length_kl_sim))
+        #IndexError: list index out of range -> the concept is not in the graph
+        #networkx.exception.NetworkXNoPath: Node 3 not reachable from 9
 
     if DEBUG:
         g.testGraph()
