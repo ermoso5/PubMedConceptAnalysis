@@ -1,6 +1,6 @@
-import math
 import networkx as nx
-import scipy.stats as stats
+from scipy.stats import entropy
+from scipy.spatial.distance import cosine 
 import matplotlib.pyplot as plt
 
 __author__ = ["Falitokiniaina Rabearison", "Zara Alaverdyan", "Marcello Benedetti"]
@@ -16,7 +16,13 @@ class Analysis:
     def getIdFromConcept(self, concept):
         query = "SELECT id FROM {0} WHERE term LIKE '{1}'" \
                 .format(self.graph.graph_nodes, concept)  
-        return self.graph.sendQuery(query) 
+        return self.graph.sendQuery(query)[0][0]
+    
+    
+    def getConceptFromId(self, id):
+        query = "SELECT term FROM {0} WHERE id={1}" \
+                .format(self.graph.graph_nodes, id)  
+        return self.graph.sendQuery(query)[0][0]
     
     
     def getNumRelevantNodes(self):
@@ -41,9 +47,10 @@ class Analysis:
         return self.graph.sendQuery(query)
 
 
-    def getTimeSeries(self, concept, plot):
-        query = "SELECT t.year, t.frequency FROM {0} t JOIN {1} n ON t.id=n.id WHERE n.term='{2}' ORDER BY t.year ASC" \
-                .format(self.graph.time_series, self.graph.graph_nodes, concept)
+    def getTimeSeries(self, concept, from_string=False, plot=False):
+        concept_id = self.getIdFromConcept(concept) if from_string else int(concept)
+        query = "SELECT year, frequency FROM {0} WHERE id={1} ORDER BY YEAR ASC" \
+                .format(self.graph.time_series, concept_id)
         result = self.graph.sendQuery(query)
         if plot and len(result)>0:
             plt.plot([i[0] for i in result], [i[1] for i in result], 'r-o', linewidth=1.0, label=concept)
@@ -61,75 +68,51 @@ class Analysis:
         return self.graph.sendQuery(query)
 
 
-    def a_star(self, source, target, similarity = 'cosine'):
+    def a_star(self, source, target, distance='cosine'):
+        #make sure source and taget exist to avoid searching the whole graph
+        check1 = "SELECT count(*) FROM {0} WHERE node1={1}".format(self.graph.bigraph_norm, source)
+        check2 = "SELECT count(*) FROM {0} WHERE node2={1}".format(self.graph.bigraph_norm, target)    
+        if self.graph.sendQuery(check1)[0][0]==0:
+            print("Source {0} is not in the graph or doesn't have outgoing edges.".format(source))
+            quit()
+        if self.graph.sendQuery(check2)[0][0]==0:
+            print("Target {0} is not in the graph or doesn't have incoming edges.".format(target))
+            quit()
         weighted_oriented_edges = []
         query = "SELECT * FROM {0}".format(self.graph.bigraph_norm)
         result = self.graph.sendQuery(query)
         for row in result:
-            row = (row[0], row[1], 1/float(row[2]))
+            row = (int(row[0]), int(row[1]), float(row[2]))
             weighted_oriented_edges.append(row)
-        #weighted_oriented_edges = [[int(y) for y in x] for x in weighted_oriented_edges]    #convert str into int
-        #print(weighted_oriented_edges)
         nxG = nx.DiGraph()
         nxG.add_weighted_edges_from(weighted_oriented_edges)
-        if similarity == 'cosine':
-            path = nx.astar_path(nxG, source, target, heuristic = self.heuristicFunctionCosine)
-            length = nx.astar_path_length(nxG, source,target, heuristic = self.heuristicFunctionCosine)
-        if similarity == 'kl':
-            path = nx.astar_path(nxG, source, target, heuristic = self.heuristicFunctionKl)
-            length = nx.astar_path_length(nxG, source,target, heuristic = self.heuristicFunctionKl)
+        if distance == 'cosine':
+            heuristic = self.heuristicFunctionCosine
+        elif distance == 'kl':
+            heuristic = self.heuristicFunctionKl
+        path = nx.astar_path(nxG, source, target, heuristic)
+        length = sum(nxG[u][v].get('weight', 1) for u, v in zip(path[:-1], path[1:]))
         return path, length
 
+
     def heuristicFunctionCosine(self, concept1, concept2):
-        return 1.0 / float(1e-10 + self.cosineSimilarity(concept1, concept2))
+        return self.timeSeriesDistance(concept1, concept2, type='cosine')
+
 
     def heuristicFunctionKl(self, concept1, concept2):
-        return 1.0 / float(1e-10 + self.klSimilarity(concept1, concept2))
-
-
-    def cosineSimilarity(self, concept1, concept2):
-        query1 = "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.graph.time_series, concept1)
-        query2 = "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.graph.time_series, concept2)      
-        concept1_time_series = self.graph.sendQuery(query1)
-        concept2_time_series = self.graph.sendQuery(query2)     
-        i = j = 0
-        sim = 0
-        norm_concept1 = 0
-        norm_concept2 = 0
-        while i < len(concept1_time_series) and j < len(concept2_time_series):
-            year1 = concept1_time_series[i][0]
-            year2 = concept2_time_series[j][0]
-            freq_concept1 = concept1_time_series[i][1]
-            freq_concept2 = concept2_time_series[j][1]
-            if year1 == year2:
-                sim += freq_concept1 * freq_concept2
-                norm_concept1 += math.pow(freq_concept1, 2)
-                norm_concept2 += math.pow(freq_concept2, 2)
-                i += 1
-                j += 1
-            elif year1 > year2:
-                norm_concept2 += math.pow(freq_concept2, 2)
-                j += 1
-            else:
-                norm_concept1 += math.pow(freq_concept1, 2)
-                i += 1
-        while i < len(concept1_time_series):
-            norm_concept1 += math.pow(concept1_time_series[i][1], 2)
-            i += 1
-        while j < len(concept2_time_series):
-            norm_concept2 += math.pow(concept2_time_series[j][1], 2)
-            j += 1
-        return sim/(math.sqrt(norm_concept1 * norm_concept2))
-       
-        
-    def klSimilarity(self, concept1, concept2):
-        query1 = "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.graph.time_series, concept1)
-        query2 = "SELECT year, frequency FROM {0} WHERE id= {1} ORDER BY YEAR ASC".format(self.graph.time_series, concept2)      
-        concept1_time_series = self.graph.sendQuery(query1)
-        concept2_time_series = self.graph.sendQuery(query2)
+        dist = self.timeSeriesDistance(concept1, concept2, type='kl')
+        print(concept1, " ", concept2, " ", dist)
+        return dist
+        #return self.timeSeriesDistance(concept1, concept2, type='kl')
+ 
+ 
+    def timeSeriesDistance(self, concept1, concept2, type):
+        concept1_time_series = self.getTimeSeries(concept1, from_string=False)
+        concept2_time_series = self.getTimeSeries(concept2, from_string=False)
+        i = 0
+        j = 0
         c1 = []
         c2 = []
-        i = j = 0
         while i < len(concept1_time_series) and j < len(concept2_time_series):
             year1 = concept1_time_series[i][0]
             year2 = concept2_time_series[j][0]
@@ -148,5 +131,14 @@ class Analysis:
                 c1.append(freq_concept1)
                 c2.append(1)           
                 i += 1
-        #print(c1) #print(c2)
-        return 1 - stats.entropy(c1, c2)
+        #print(c1) 
+        #print(c2)
+        if len(c1)==0 or len(c2)==0:
+            return 1 
+        elif type=='cosine':
+            return cosine(c1, c2)
+        elif type=='kl':
+            return entropy(c1, c2)
+        else:
+           print("Distance type not specified or unknown.")
+           quit()

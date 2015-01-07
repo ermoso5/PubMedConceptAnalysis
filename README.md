@@ -8,6 +8,8 @@ Analysis of the appearance of new concepts and of the change of the meaning of e
 Required packages:
   - python 3.4.0
   - nltk 3.0.0
+  - networkx
+  - scipy
   - pyner
   - gensim
 

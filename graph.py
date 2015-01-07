@@ -208,7 +208,7 @@ class Graph(object):
         #create view of node frequencies discarding top k% and bottom k%
         c.execute(
             "CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ((SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"
-            .format(self.filtered_nodes_view, self.graph_weights, k_percent, total - 2* k_percent)) #??????????
+            .format(self.filtered_nodes_view, self.graph_weights, k_percent, total - 2* k_percent))
         self.commit()
 
         c.execute(
@@ -240,7 +240,7 @@ class Graph(object):
                 tuples.append((edge[0], edge[1], norm_weight1))
                 tuples.append((edge[1], edge[0], norm_weight2))
             else:
-                print(edge[0], " - ", edge[1])
+                print("Error with ", edge[0], " - ", edge[1])
         query = "INSERT INTO {0} VALUES (?,?,?) ".format(self.bigraph_norm)
         c.executemany(query, tuples)
         self.commit()
