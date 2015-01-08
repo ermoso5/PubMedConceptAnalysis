@@ -69,6 +69,7 @@ class Analysis:
 
 
     def create_networkx_graph(self):
+        print("Creating digraph ...")
         weighted_oriented_edges = []
         query = "SELECT * FROM {0}".format(self.graph.bigraph_norm)
         result = self.graph.sendQuery(query)
@@ -77,6 +78,7 @@ class Analysis:
             weighted_oriented_edges.append(row)
         self.nxG = nx.DiGraph()
         self.nxG.add_weighted_edges_from(weighted_oriented_edges)
+        print("digraph created")
 
     def a_star(self, source, target, distance='cosine'):
         if distance == 'cosine':
@@ -87,10 +89,8 @@ class Analysis:
         length = sum(self.nxG[u][v].get('weight', 1) for u, v in zip(path[:-1], path[1:]))
         return path, length
 
-
     def heuristicFunctionCosine(self, concept1, concept2):
         return self.timeSeriesDistance(concept1, concept2, type='cosine')
-
 
     def heuristicFunctionKl(self, concept1, concept2):
         dist = self.timeSeriesDistance(concept1, concept2, type='kl')
@@ -103,6 +103,64 @@ class Analysis:
         for concept_id in id_concepts_path_tab:
             concept_path = concept_path + " -> " + self.getConceptFromId(concept_id)
         return concept_path
+
+    def path_analysis(self):
+        concept1_source = ""
+        concept2_target = ""
+        while concept1_source != 'q' and concept2_target != 'q':
+            try:
+                #make sure source and taget exist to avoid searching the whole graph
+                concept = 1
+                concept1_source = input('\nInput source concept?:[Enter "q" to quit]')
+                source = self.getIdFromConcept(concept1_source) # if raise IndexError -> not in the initial graph
+                # check if in the bi_graph
+                check1 = "SELECT count(*) FROM {0} WHERE node1={1}".format(self.graph.bigraph_norm, source)
+                if self.graph.sendQuery(check1)[0][0]==0:
+                    raise KeyError("Source '{0}' is not in the graph or doesn't have outgoing edges.".format(concept1_source))
+
+                concept = 2
+                concept2_target = input('Input target concept?: [Enter "q" to quit]')
+                target = self.getIdFromConcept(concept2_target) # if raise IndexError -> not in the initial graph
+                check2 = "SELECT count(*) FROM {0} WHERE node2={1}".format(self.graph.bigraph_norm, target)
+                if self.graph.sendQuery(check2)[0][0]==0:
+                    raise KeyError("Target '{0}' is not in the graph or doesn't have incoming edges.".format(concept2_target))
+                #END make sure source and taget exist to avoid searching the whole graph
+
+                path_cosine_dis, length_cosine_dist = self.a_star(source, target, distance = 'cosine')
+                path_kl_dis, length_kl_dis = self.a_star(source, target, distance = 'kl')
+
+                print("Using Cosine Distance:")
+                print('\tPath from {0} to {1}: {2}'.format(concept1_source,concept2_target, path_cosine_dis))
+                print('\t\t'+self.print_path(path_cosine_dis))
+                print('\tPath length:{}'.format(length_cosine_dist))
+
+                print("Using Kl Distance:")
+                print('\tPath from {0} to {1}:{2}'.format(concept1_source,concept2_target, path_kl_dis))
+                print('\t\t'+self.print_path(path_kl_dis))
+                print('\tPath length:{}'.format(length_kl_dis))
+                #IndexError: list index out of range -> the concept is not in the graph
+                #networkx.exception.NetworkXNoPath: Node 3 not reachable from 9
+                '''
+                Input source concept?:[Enter "q" to quit]acute myocardial infarction
+                Input target concept?: [Enter "q" to quit]induce efficient
+                Using Cosine Distance:
+                    Path from acute myocardial infarction to induce efficient: [4925, 5555, 6715, 7900]
+                         -> acute myocardial infarction -> recurrent -> influenza -> induce efficient
+                    Path length:0.02661107195990917
+                Using Kl Distance:
+                    Path from acute myocardial infarction to induce efficient:[4925, 5555, 6715, 7900]
+                         -> acute myocardial infarction -> recurrent -> influenza -> induce efficient
+                    Path length:0.02661107195990917
+                '''
+            except IndexError:
+                if concept == 1:
+                    print("Source '{0}' is not in the initial graph.".format(concept1_source))
+                if concept == 2:
+                    print("Target '{0}' is not in the initial graph.".format(concept2_target))
+            except nx.exception.NetworkXNoPath:
+                print("There is no path between the two nodes.")
+            except KeyError as Error_msg:
+                print(Error_msg)
  
     def timeSeriesDistance(self, concept1, concept2, type):
         concept1_time_series = self.getTimeSeries(concept1, from_string=False)
