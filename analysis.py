@@ -68,30 +68,23 @@ class Analysis:
         return self.graph.sendQuery(query)
 
 
-    def a_star(self, source, target, distance='cosine'):
-        #make sure source and taget exist to avoid searching the whole graph
-        check1 = "SELECT count(*) FROM {0} WHERE node1={1}".format(self.graph.bigraph_norm, source)
-        check2 = "SELECT count(*) FROM {0} WHERE node2={1}".format(self.graph.bigraph_norm, target)    
-        if self.graph.sendQuery(check1)[0][0]==0:
-            print("Source {0} is not in the graph or doesn't have outgoing edges.".format(source))
-            quit()
-        if self.graph.sendQuery(check2)[0][0]==0:
-            print("Target {0} is not in the graph or doesn't have incoming edges.".format(target))
-            quit()
+    def create_networkx_graph(self):
         weighted_oriented_edges = []
         query = "SELECT * FROM {0}".format(self.graph.bigraph_norm)
         result = self.graph.sendQuery(query)
         for row in result:
             row = (int(row[0]), int(row[1]), float(row[2]))
             weighted_oriented_edges.append(row)
-        nxG = nx.DiGraph()
-        nxG.add_weighted_edges_from(weighted_oriented_edges)
+        self.nxG = nx.DiGraph()
+        self.nxG.add_weighted_edges_from(weighted_oriented_edges)
+
+    def a_star(self, source, target, distance='cosine'):
         if distance == 'cosine':
             heuristic = self.heuristicFunctionCosine
         elif distance == 'kl':
             heuristic = self.heuristicFunctionKl
-        path = nx.astar_path(nxG, source, target, heuristic)
-        length = sum(nxG[u][v].get('weight', 1) for u, v in zip(path[:-1], path[1:]))
+        path = nx.astar_path(self.nxG, source, target, heuristic)
+        length = sum(self.nxG[u][v].get('weight', 1) for u, v in zip(path[:-1], path[1:]))
         return path, length
 
 
@@ -101,10 +94,15 @@ class Analysis:
 
     def heuristicFunctionKl(self, concept1, concept2):
         dist = self.timeSeriesDistance(concept1, concept2, type='kl')
-        print(concept1, " ", concept2, " ", dist)
+        #print(concept1, " ", concept2, " ", dist)
         return dist
         #return self.timeSeriesDistance(concept1, concept2, type='kl')
- 
+
+    def print_path(self,id_concepts_path_tab):
+        concept_path = ""
+        for concept_id in id_concepts_path_tab:
+            concept_path = concept_path + " -> " + self.getConceptFromId(concept_id)
+        return concept_path
  
     def timeSeriesDistance(self, concept1, concept2, type):
         concept1_time_series = self.getTimeSeries(concept1, from_string=False)

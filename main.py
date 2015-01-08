@@ -1,4 +1,5 @@
 import time
+import networkx
 
 from dataparser import Parser
 from processor import Processor
@@ -45,28 +46,48 @@ def main(parsing=False, processing=False, finalize=False, analysis=True):
 
     #STEP 4: analysis
     if analysis:
-        concept1_source = 'angle' #'chronic' #just exampleID
-        concept2_target = 'diagnostic procedure' #'therapy'
-
+        #concept1_source = 'angle' #'chronic' #just exampleID
+        #concept2_target = 'diagnostic procedure' #'therapy'
+        print("\nAnalysis : ")
         an = Analysis(g)
-        path_cosine_dis, length_cosine_distm = an.a_star(
-            an.getIdFromConcept(concept1_source),
-            an.getIdFromConcept(concept2_target), distance = 'cosine')
-        path_kl_dis, length_kl_dis = an.a_star(
-            an.getIdFromConcept(concept1_source),
-            an.getIdFromConcept(concept2_target), distance = 'kl')
+        print("Creating digraph ...")
+        an.create_networkx_graph()
+        concept1_source = ""
+        concept2_target = ""
+        while concept1_source != 'q' and concept2_target != 'q':
+            concept1_source = input('\nInput source concept?:[Enter "q" to quit]')
+            concept2_target = input('Input target concept?: [Enter "q" to quit]')
+            try:
+                concept = 1
+                path_cosine_dis, length_cosine_dist = an.a_star(
+                    an.getIdFromConcept(concept1_source),
+                    an.getIdFromConcept(concept2_target), distance = 'cosine')
+                concept = 2
+                path_kl_dis, length_kl_dis = an.a_star(
+                    an.getIdFromConcept(concept1_source),
+                    an.getIdFromConcept(concept2_target), distance = 'kl')
 
-        print("Using Cosine Distance:")
-        print('Path from {0} to {1}:'.format(concept1_source,concept2_target))
-        print(path_cosine_dis)
-        print('Path length:{}'.format(length_cosine_dis))
+                print("Using Cosine Distance:")
+                print('\tPath from {0} to {1}: {2}'.format(concept1_source,concept2_target, path_cosine_dis))
+                print('\t\t'+an.print_path(path_cosine_dis))
+                print('\tPath length:{}'.format(length_cosine_dist))
 
-        print("Using Kl Distance:")
-        print('Path from {0} to {1}:'.format(concept1_source,concept2_target))
-        print(path_kl_dis)
-        print('Path length:{}'.format(length_kl_dis))
-        #IndexError: list index out of range -> the concept is not in the graph
-        #networkx.exception.NetworkXNoPath: Node 3 not reachable from 9
+                print("Using Kl Distance:")
+                print('\tPath from {0} to {1}:{2}'.format(concept1_source,concept2_target, path_kl_dis))
+                print('\t\t'+an.print_path(path_kl_dis))
+                print('\tPath length:{}'.format(length_kl_dis))
+                #IndexError: list index out of range -> the concept is not in the graph
+                #networkx.exception.NetworkXNoPath: Node 3 not reachable from 9
+            except IndexError:
+                #make sure source and taget exist to avoid searching the whole graph
+                if concept == 1:
+                    print("Source '{0}' is not in the graph or doesn't have outgoing edges.".format(concept1_source))
+                if concept == 2:
+                    print("Target '{0}' is not in the graph or doesn't have incoming edges.".format(concept2_target))
+            except networkx.exception.NetworkXNoPath:
+                print("There is no path between the two nodes.")
+
+
 
     if DEBUG:
         g.testGraph()
