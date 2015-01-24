@@ -192,7 +192,8 @@ class Graph(object):
         self.close()
 
 
-    def createFilteredView(self, percentage=5):
+    def createFilteredView(self, filter_bottom_perc=10, filter_top_number=23):
+        """ Filters 10 percents of edges from the bottom and filters exactly 23 nodes from the top. """
         self.connect()
         c = self.cursor()
         
@@ -201,14 +202,17 @@ class Graph(object):
         c.execute("DROP VIEW IF EXISTS {}".format(self.filtered_edges_view))
         self.commit()
 
-        count = c.execute("SELECT count(*) FROM {0}".format(self.graph_nodes))
+        count = len(self.dictionary) #c.execute("SELECT count(*) FROM {0}".format(self.graph_nodes))
         total = count.fetchone()[0]
-        k_percent = math.ceil(total * percentage / 100)
+        bottom_irrelevant = total * filter_bottom_perc / 100
 
         #create view of node frequencies discarding top k% and bottom k%
+        query = "CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ((SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"\
+               .format(self.filtered_nodes_view, self.graph_weights, bottom_irrelevant, total - filter_top_number)
+        print(query)
         c.execute(
             "CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ((SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"
-            .format(self.filtered_nodes_view, self.graph_weights, k_percent, total - 2* k_percent))
+            .format(self.filtered_nodes_view, self.graph_weights, bottom_irrelevant, total - filter_top_number))
         self.commit()
 
         c.execute(
@@ -222,7 +226,7 @@ class Graph(object):
 
         self.commit()
         self.close()
-        print(str(k_percent) + " nodes are not relevant")
+        print(str(bottom_irrelevant) + " nodes are not relevant")
         print(str(countBefore - countAfter) + " edges are not relevant")
 
     

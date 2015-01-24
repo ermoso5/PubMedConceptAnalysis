@@ -1,4 +1,5 @@
 import networkx as nx
+import numpy as np
 from scipy.stats import entropy
 from scipy.spatial.distance import cosine 
 import matplotlib.pyplot as plt
@@ -16,13 +17,19 @@ class Analysis:
     def getIdFromConcept(self, concept):
         query = "SELECT id FROM {0} WHERE term LIKE '{1}'" \
                 .format(self.graph.graph_nodes, concept)  
-        return self.graph.sendQuery(query)[0][0]
+        if len(self.graph.sendQuery(query))>0:
+            return self.graph.sendQuery(query)[0][0]
+        else:
+            return None
     
     
-    def getConceptFromId(self, id):
+    def getConceptFromId(self, id): 
         query = "SELECT term FROM {0} WHERE id={1}" \
-                .format(self.graph.graph_nodes, id)  
-        return self.graph.sendQuery(query)[0][0]
+                .format(self.graph.graph_nodes, id)
+        if len(self.graph.sendQuery(query))>0:
+            return self.graph.sendQuery(query)[0][0]
+        else:
+            return None
     
     
     def getNumRelevantNodes(self):
@@ -43,20 +50,63 @@ class Analysis:
                    GROUP BY n.term 
                    ORDER BY occurrences DESC 
                    LIMIT {2}""" \
-                .format(self.graph.time_series, self.graph.graph_nodes, n)  
+                .format(self.graph.time_series, self.graph.graph_nodes, n)
+        return self.graph.sendQuery(query)
+
+    
+    def plotZipf(self, n):
+        topTerms = self.getTopTerms(n)
+        if len(topTerms)<1:
+            return
+        idx = np.arange(len(topTerms))
+        labels = [i[0] for i in topTerms]
+        values = [i[1] for i in topTerms]
+        plt.bar(idx, values, width=0.5, align="center")
+        plt.xlim([0, max(idx)])
+        plt.ylim([0, max(values)+1000])
+        plt.ylabel("Frequency")
+        plt.title("Zipf's Law")
+        plt.xticks(idx, labels, rotation=90)
+        plt.tight_layout        
+        plt.show()
+
+
+    def getTotalFrequenciesPerYear(self):
+        query = "SELECT year, sum(frequency) AS tot FROM {0} GROUP BY year ORDER BY year ASC" \
+                .format(self.graph.time_series)
         return self.graph.sendQuery(query)
 
 
-    def getTimeSeries(self, concept, from_string=False, plot=False):
+    def getTimeSeries(self, concept, from_string=False):
         concept_id = self.getIdFromConcept(concept) if from_string else int(concept)
+        if not concept_id:
+            return []
         query = "SELECT year, frequency FROM {0} WHERE id={1} ORDER BY YEAR ASC" \
                 .format(self.graph.time_series, concept_id)
-        result = self.graph.sendQuery(query)
-        if plot and len(result)>0:
-            plt.plot([i[0] for i in result], [i[1] for i in result], 'r-o', linewidth=1.0, label=concept)
-            plt.legend()
-            plt.show()
+        tmp = dict(self.graph.sendQuery(query))
+        totals = self.getTotalFrequenciesPerYear()
+        result = []
+        for (year, total) in totals:
+            value = tmp.get(year)
+            if value:
+                result.append((year, value/total))
+            else:
+                result.append((year, 0))
         return result
+        
+    
+    def plotTimeSeries(self, concepts, from_string=False, plot=False):
+        time_series = []
+        for conc in concepts:
+            time_series = self.getTimeSeries(conc, from_string)
+            #if plot and len(result)>0:
+            plt.plot([i[0] for i in time_series], [i[1] for i in time_series], linewidth=1.0, label=conc)
+        plt.ylabel("Year")
+        plt.ylabel("Percentage of Total Publications (%)")
+        plt.title("Usage of Terms Over Time")
+        plt.tight_layout()
+        plt.legend()
+        plt.show()
 
 
     def getStrongEdges(self, n):
@@ -80,6 +130,7 @@ class Analysis:
         self.nxG.add_weighted_edges_from(weighted_oriented_edges)
         print("digraph created")
 
+
     def a_star(self, source, target, distance='cosine'):
         if distance == 'cosine':
             heuristic = self.heuristicFunctionCosine
@@ -89,8 +140,10 @@ class Analysis:
         length = sum(self.nxG[u][v].get('weight', 1) for u, v in zip(path[:-1], path[1:]))
         return path, length
 
+
     def heuristicFunctionCosine(self, concept1, concept2):
         return self.timeSeriesDistance(concept1, concept2, type='cosine')
+
 
     def heuristicFunctionKl(self, concept1, concept2):
         dist = self.timeSeriesDistance(concept1, concept2, type='kl')
@@ -162,6 +215,7 @@ class Analysis:
             except KeyError as Error_msg:
                 print(Error_msg)
  
+ 
     def timeSeriesDistance(self, concept1, concept2, type):
         concept1_time_series = self.getTimeSeries(concept1, from_string=False)
         concept2_time_series = self.getTimeSeries(concept2, from_string=False)
@@ -192,9 +246,9 @@ class Analysis:
         if len(c1)==0 or len(c2)==0:
             return 1 
         elif type=='cosine':
-            return cosine(c1, c2)
+            return abs(cosine(c1, c2))
         elif type=='kl':
-            return entropy(c1, c2)
+            return abs(entropy(c1, c2))
         else:
            print("Distance type not specified or unknown.")
            quit()
