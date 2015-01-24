@@ -220,14 +220,9 @@ class Analysis:
         #check all nodes in the graph:
         found = False
         for couple in list_couples:
-            for i,j in couple:
+            for i in couple:
                 found = self.check_id_in_graph(i)
                 if not found:
-                    print("{0} is not in the graph.".format(i))
-                    return False
-                found = self.check_id_in_graph(i)
-                if not found:
-                    print("{0} is not in the graph.".format(j))
                     return False
 
         nb_opt_cosine_error = 0
