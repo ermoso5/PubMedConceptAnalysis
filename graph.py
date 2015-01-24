@@ -202,14 +202,10 @@ class Graph(object):
         c.execute("DROP VIEW IF EXISTS {}".format(self.filtered_edges_view))
         self.commit()
 
-        count = len(self.dictionary) #c.execute("SELECT count(*) FROM {0}".format(self.graph_nodes))
-        total = count.fetchone()[0]
-        bottom_irrelevant = total * filter_bottom_perc / 100
+        total = len(self.dictionary) #c.execute("SELECT count(*) FROM {0}".format(self.graph_nodes))
+        bottom_irrelevant = int(total * filter_bottom_perc / 100)
 
         #create view of node frequencies discarding top k% and bottom k%
-        query = "CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ((SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"\
-               .format(self.filtered_nodes_view, self.graph_weights, bottom_irrelevant, total - filter_top_number)
-        print(query)
         c.execute(
             "CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ((SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"
             .format(self.filtered_nodes_view, self.graph_weights, bottom_irrelevant, total - filter_top_number))
