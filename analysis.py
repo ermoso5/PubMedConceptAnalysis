@@ -215,7 +215,7 @@ class Analysis:
             except KeyError as Error_msg:
                 print(Error_msg)
 
-    def test_best_optimistic_function(self,list_couples):#[['565', '575'], ['1215', '245'], ['1740', '245']]
+    def test_best_optimistic_function(self,list_couples):#[[565, 575], [1215, 245], [1740, 245]]
         #return best heuristic, the one with min error rate
         #check all nodes in the graph:
         found = False
@@ -229,10 +229,10 @@ class Analysis:
         nb_opt_kl_error = 0
         for couple in list_couples:
             print("optimistic testing {0}".format(couple))
-            real_dist_cos = nx.astar_path_length(self.nxG, couple[0], couple[1], heuristic='cosine')
-            real_dist_kl = nx.astar_path_length(self.nxG, couple[0], couple[1], heuristic='kl')
-            cosine_dist = self.heuristicFunctionCosine(couple[0], couple[1])
-            kl_dist = self.heuristicFunctionKl(couple[0], couple[1])
+            real_dist_cos = nx.astar_path_length(self.nxG, int(couple[0]), int(couple[1]), heuristic=self.heuristicFunctionCosine)
+            real_dist_kl = nx.astar_path_length(self.nxG, int(couple[0]), int(couple[1]), heuristic=self.heuristicFunctionKl)
+            cosine_dist = self.heuristicFunctionCosine(int(couple[0]), int(couple[1]))
+            kl_dist = self.heuristicFunctionKl(int(couple[0]), int(couple[1]))
             if cosine_dist > real_dist_cos:
                 nb_opt_cosine_error += 1
             if kl_dist > real_dist_kl:
