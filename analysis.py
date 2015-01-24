@@ -215,8 +215,8 @@ class Analysis:
             except KeyError as Error_msg:
                 print(Error_msg)
 
-     def test_best_optimistic_function(self,list_couples):#[['565', '575'], ['1215', '245'], ['1740', '245']]
-    #return best heuristic, the one with min error rate
+    def test_best_optimistic_function(self,list_couples):#[['565', '575'], ['1215', '245'], ['1740', '245']]
+        #return best heuristic, the one with min error rate
         nb_opt_cosine_error = 0
         nb_opt_kl_error = 0
         for couple in list_couples:
