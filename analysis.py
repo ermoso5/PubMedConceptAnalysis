@@ -217,6 +217,19 @@ class Analysis:
 
     def test_best_optimistic_function(self,list_couples):#[['565', '575'], ['1215', '245'], ['1740', '245']]
         #return best heuristic, the one with min error rate
+        #check all nodes in the graph:
+        found = False
+        for couple in list_couples:
+            for i,j in couple:
+                found = self.check_id_in_graph(i)
+                if not found:
+                    print("{0} is not in the graph.".format(i))
+                    return False
+                found = self.check_id_in_graph(i)
+                if not found:
+                    print("{0} is not in the graph.".format(j))
+                    return False
+
         nb_opt_cosine_error = 0
         nb_opt_kl_error = 0
         for couple in list_couples:
@@ -237,6 +250,14 @@ class Analysis:
             return "cosine"
         else:
             return "kl"
+
+    def check_id_in_graph(self,id):
+        found = True
+        check = "SELECT count(*) FROM {0} WHERE node2={1}".format(self.graph.bigraph_norm, id)
+        if self.graph.sendQuery(check)[0][0]==0:
+            print("'{0}' is not in the graph or doesn't have incoming edges.".format(id))
+            found = False
+        return found
  
     def timeSeriesDistance(self, concept1, concept2, type):
         concept1_time_series = self.getTimeSeries(concept1, from_string=False)
