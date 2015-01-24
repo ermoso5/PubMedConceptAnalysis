@@ -3,98 +3,120 @@ __author__ = 'Nishara'
 from gensim import models, corpora  # http://radimrehurek.com/gensim/models/ldamodel.html
 from processor import *
 from _lda.fetch_terms import FetchTerms
+import ast
+import matplotlib.pyplot as plt
 
 
-num_topics = 5
-chunk_size = 10000
-passes = 5
-num_words_per_topic = 30
-
-SQL_DB = "test_graph.db"
-graph_node = "graph1_nodes"
-
-train_lda_model = False
-test_lda_model = True
-update_clusters = False
 processor = Processor()
-fetch_terms = FetchTerms()
 
 
 class LDA(object):
-    def iterator(self):
+    def train_lda_model(self, num_topics, chunk_size, passes, num_words_per_topic, root):
 
-        if train_lda_model:  # To train the model if lda.model does not exist in the directory.
-            # Extract the medterms from from each document in the corpus. Calling NER again to get the frequency of
-            # each term in each doc. Have to find an easy method for this using the medterms already stored in the DB
-            texts = [[word for word in processor.processString(string=document, ner=True, lemmatize=True, stemming=None,
-                                                               min_word_length=1)] for document in
-                     open("small_medline_formatted.txt")]
+        # To train the model if lda.model does not exist in the directory.
 
+        # Extract the medterms from from each document in the corpus. Calling NER again to get the frequency of
+        # each term in each doc.
+        #****
+        #**** ADEPT does not return the repetitions of terms
+        texts = []
+        for dir in os.listdir(root):
+            dir_origin = os.path.join(root, dir)
+            if os.path.isdir(dir_origin) and dir.isdigit():
+                for file in os.listdir(dir_origin):
+                    entities = processor.processString(string=self.fileToString(os.path.join(dir_origin, file)),
+                                                       ner=True, lemmatize=True, stemming=None, min_word_length=1)
+                    texts.append(entities)
 
-            # Fetch distinct medterms from DB
-            medterm_tuples = FetchTerms().fetch_all_medterms()
-            # list_medterms = [element for tuple in medterm_tuples for element in tuple]
+        tokens = sum(texts, [])
+        processed_texts = [[word for word in text if word in tokens] for text in texts]
 
+        # Fetch distinct medterms from DB
+        medterm_tuples = FetchTerms().fetch_all_medterms()
 
-            # texts_1 = [[any(word in document.lower() for word in listt)] for document in open("small_medline_formatted.txt")]
+        # Create Dictionary (id->word). # Better to save the dictionary.
+        # dictionary = corpora.Dictionary(list(medterm_tuples))       # Use this if the terms are imported from the graph.
+        dictionary = corpora.Dictionary(processed_texts)
+        dictionary.save('dictionary.dict')
+        # Creates the Bag of Word corpus
+        corpus = [dictionary.doc2bow(text) for text in texts]
+        # corpus = dictionary.doc2bow(corpus)
 
-            # Create Dictionary (id->word). # Better to save the dictionary.
-            dictionary = corpora.Dictionary(list(medterm_tuples))
-            dictionary.save('dictionary.dict')
-            # Creates the Bag of Word corpus
-            corpus = [dictionary.doc2bow(text) for text in texts]
-            # corpus = dictionary.doc2bow(corpus)
-
-            # Trains the LDA model
-            # chunksize = update the model once every chunksize
-            # passes = how many passes over the document set(given corpus)
-            lda = models.LdaModel(corpus=corpus, id2word=dictionary, num_topics=num_topics, update_every=1,
-                                  chunksize=chunk_size, passes=passes)
-            lda.save('lda.model')
-            # Print the topics
-            # self.topic_models(lda)
-
-            # Assign the topics to the documents in corpus
-            # self.cluster_new_corpus()
+        # Trains the LDA model
+        # chunksize = update the model once every chunksize
+        # passes = how many passes over the document set(given corpus)
+        lda = models.LdaModel(corpus=corpus, id2word=dictionary, num_topics=num_topics, update_every=1,
+                              chunksize=chunk_size, passes=passes)
+        lda.save('lda.model')
+        # Print the topics
+        # self.topic_models(lda, num_words_per_topic)
 
     # Print the topics
-    def topic_models(self, lda_model):
+    def topic_models(self, lda_model, num_words_per_topic):
         for top in lda_model.print_topics(num_words=num_words_per_topic):
             print(top)
             print()
 
-    # Cluster a new dataset called "testset.txt" using the trained lda model
-    def cluster_new_corpus(self):
+    def cluster_docs_by_year(self, root):
+        topic_dictionary = {}
+
         lda_model = models.LdaModel.load('lda.model')
         dictionary = corpora.Dictionary.load('dictionary.dict')
         i = 0
-        for document in open("testset.txt"):
-            i += 1
-            vec = dictionary.doc2bow(document.split())
-            topics = lda_model[vec]
-            print("doc_", i, max(topics, key=lambda sim: sim[1]))
+        if not os.path.isdir(root):
+            raise Exception("'{0}' folder doesn't exist".format(root))
 
-    # Assign each medical term appeared in each year to a cluster with the highest probability.
-    def cluster_by_years(self):
-        if update_clusters:
-            years = fetch_terms.get_distinct_years()
-            for year in years:
-                med_line = fetch_terms.get_concepts_by_year(year=year)
-                print(med_line)
-                lda = models.LdaModel.load('lda.model')
-                dictionary = corpora.Dictionary.load('dictionary.dict')
-                for document in med_line:
-                    doc2word = dictionary.doc2bow(document[0].split())
-                    topics = lda[doc2word]
-                    top = max(topics, key=lambda sim: sim[1])
-                    update_query = "UPDATE {0} SET cluster = {1}, probability = {2} WHERE year = {3} and term = '{4}'".format(
-                        graph_node, top[0],
-                        top[1], year, str(document[0]))
-                    fetch_terms.db_update_with_clusters(update_query)
+        for dir in os.listdir(root):
+            dir_origin = os.path.join(root, dir)
+            if os.path.isdir(dir_origin) and dir.isdigit():
+                year = int(dir)
+
+                for file in os.listdir(dir_origin):
+                    entities = processor.processString(string=self.fileToString(os.path.join(dir_origin, file)),
+                                                       ner=True, lemmatize=True, stemming=None, min_word_length=1)
+                    i += 1
+                    vec = dictionary.doc2bow(entities)
+                    topics = lda_model[vec]
+                    top = max(topics, key=lambda sim: sim[1])[0]
+                    # print("doc_", i, max(topics, key=lambda sim: sim[1]))
+                    year_dictionary = {}
+                    if (top in topic_dictionary.keys()):
+                        year_dictionary = topic_dictionary.get(top)
+                        if (year in year_dictionary.keys()):
+                            year_dictionary[year] += 1
+                        else:
+                            year_dictionary[year] = 1
+                    else:
+                        year_dictionary[year] = 1
+                        topic_dictionary[top] = year_dictionary
+
+        file = open('output.txt', 'w')
+        for topic in topic_dictionary.keys():
+            s = "{0} -> {1}\n".format(topic, topic_dictionary.get(topic))
+            file.write(s)
 
 
-if __name__ == "__main__":
-    LDA().iterator()
-    LDA().cluster_by_years()
-    FetchTerms().fetch_time_series('chronic', 1)
-    # LDA().check_column_exists(graph_node, 'cluster')
+    def fileToString(self, file_path):
+        """Take the content of a file and put it in a string."""
+        text = ""
+        if file_path:
+            with open(file_path, "r") as f:
+                text = f.read()
+                f.close()
+        return text
+
+    def plot_concepts(self, concept):
+        result = self.reading(concept)
+        if len(result) > 0:
+            plt.plot([i for i in result.keys()], [v for v in result.values()], 'r-o', linewidth=1.0, label=concept)
+            plt.legend()
+            plt.show()
+
+
+    def reading(self, concept):
+        with open('output.txt', 'r') as file:
+            for line in file:
+                line1 = line.split("->")[0]
+                line2 = line.split("->")[1].rstrip('\n')
+                if line1.startswith(str(concept)):
+                    return eval(line2)
