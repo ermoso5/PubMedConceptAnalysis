@@ -228,7 +228,7 @@ class Analysis:
             if cosine_dist > real_dist_cos:
                 nb_opt_cosine_error += 1
             if kl_dist > real_dist_kl:
-                nb_opt_kl_error +=0
+                nb_opt_kl_error +=1
         error_rate_cosine = nb_opt_cosine_error/len(list_couples)
         error_rate_KL = nb_opt_kl_error/len(list_couples)
         print("Optimistic COSINE heuristic ERROR : {0}".format(error_rate_cosine))
