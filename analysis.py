@@ -12,7 +12,20 @@ class Analysis:
 
     def __init__(self, graph):
         self.graph = graph
-
+        self.nxG = create_networkx_graph()
+        print("Bidirected normalized graph created in memory!")
+    
+    
+    def create_networkx_graph(self):
+        weighted_oriented_edges = []
+        query = "SELECT * FROM {0}".format(self.graph.bigraph_norm)
+        result = self.graph.sendQuery(query)
+        for row in result:
+            row = (int(row[0]), int(row[1]), float(row[2]))
+            weighted_oriented_edges.append(row)
+        nxG = nx.DiGraph()
+        nxG.add_weighted_edges_from(weighted_oriented_edges)
+        
     
     def getIdFromConcept(self, concept):
         query = "SELECT id FROM {0} WHERE term LIKE '{1}'" \
@@ -52,8 +65,19 @@ class Analysis:
                    LIMIT {2}""" \
                 .format(self.graph.time_series, self.graph.graph_nodes, n)
         return self.graph.sendQuery(query)
-
     
+    
+    def getSampleConcepts(self, n, returnName=False):
+        query = """SELECT node1 FROM {0} 
+                   WHERE node1 >= (abs(random()) % (SELECT max(node1) FROM {0}))
+                   LIMIT 0, {1}""" \
+                .format(self.graph.bigraph_norm, n)
+        res = self.graph.sendQuery(query)
+        if returnName:
+            return [self.getConceptFromId(x[0]) for x in res] 
+        return self.graph.sendQuery(query)
+     
+     
     def plotZipf(self, n):
         topTerms = self.getTopTerms(n)
         if len(topTerms)<1:
@@ -67,7 +91,7 @@ class Analysis:
         plt.ylabel("Frequency")
         plt.title("Zipf's Law")
         plt.xticks(idx, labels, rotation=90)
-        plt.tight_layout        
+        plt.tight_layout
         plt.show()
 
 
@@ -95,7 +119,7 @@ class Analysis:
         return result
         
     
-    def plotTimeSeries(self, concepts, from_string=False, plot=False):
+    def plotTimeSeries(self, concepts, from_string=False):
         time_series = []
         for conc in concepts:
             time_series = self.getTimeSeries(conc, from_string)
@@ -116,19 +140,6 @@ class Analysis:
                    LIMIT {2}""" \
                 .format(self.graph.bigraph_norm, self.graph.graph_nodes, n)
         return self.graph.sendQuery(query)
-
-
-    def create_networkx_graph(self):
-        print("Creating digraph ...")
-        weighted_oriented_edges = []
-        query = "SELECT * FROM {0}".format(self.graph.bigraph_norm)
-        result = self.graph.sendQuery(query)
-        for row in result:
-            row = (int(row[0]), int(row[1]), float(row[2]))
-            weighted_oriented_edges.append(row)
-        self.nxG = nx.DiGraph()
-        self.nxG.add_weighted_edges_from(weighted_oriented_edges)
-        print("digraph created")
 
 
     def a_star(self, source, target, distance='cosine'):
@@ -215,16 +226,24 @@ class Analysis:
             except KeyError as Error_msg:
                 print(Error_msg)
 
-    def test_best_optimistic_function(self,list_couples):#[['565', '575'], ['1215', '245'], ['1740', '245']]
+    def test_best_optimistic_function(self,list_couples):#[[565, 575], [1215, 245], [1740, 245]]
         #return best heuristic, the one with min error rate
+        #check all nodes in the graph:
+        found = False
+        for couple in list_couples:
+            for i in couple:
+                found = self.check_id_in_graph(i)
+                if not found:
+                    return False
+
         nb_opt_cosine_error = 0
         nb_opt_kl_error = 0
         for couple in list_couples:
             print("optimistic testing {0}".format(couple))
-            real_dist_cos = nx.astar_path_length(self.nxG, couple[0], couple[1], heuristic='cosine')
-            real_dist_kl = nx.astar_path_length(self.nxG, couple[0], couple[1], heuristic='kl')
-            cosine_dist = self.heuristicFunctionCosine(couple[0], couple[1])
-            kl_dist = self.heuristicFunctionKl(couple[0], couple[1])
+            real_dist_cos = nx.astar_path_length(self.nxG, int(couple[0]), int(couple[1]), heuristic=self.heuristicFunctionCosine)
+            real_dist_kl = nx.astar_path_length(self.nxG, int(couple[0]), int(couple[1]), heuristic=self.heuristicFunctionKl)
+            cosine_dist = self.heuristicFunctionCosine(int(couple[0]), int(couple[1]))
+            kl_dist = self.heuristicFunctionKl(int(couple[0]), int(couple[1]))
             if cosine_dist > real_dist_cos:
                 nb_opt_cosine_error += 1
             if kl_dist > real_dist_kl:
@@ -237,6 +256,14 @@ class Analysis:
             return "cosine"
         else:
             return "kl"
+
+    def check_id_in_graph(self,id):
+        found = True
+        check = "SELECT count(*) FROM {0} WHERE node2={1}".format(self.graph.bigraph_norm, id)
+        if self.graph.sendQuery(check)[0][0]==0:
+            print("'{0}' is not in the graph or doesn't have incoming edges.".format(id))
+            found = False
+        return found
  
     def timeSeriesDistance(self, concept1, concept2, type):
         concept1_time_series = self.getTimeSeries(concept1, from_string=False)

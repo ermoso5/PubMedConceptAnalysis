@@ -167,6 +167,10 @@ class Graph(object):
         tuples = []
         query = "DELETE FROM {0}".format(self.graph_weights)
         c.execute(query)
+        query = "DROP INDEX IF EXISTS index_weights;"
+        c.execute(query)
+        self.commit()
+        
         query = "SELECT node1, node2, COUNT() FROM {0} GROUP BY node1, node2 ".format(self.graph_edges)
         result = c.execute(query)
         for row in result:
@@ -186,11 +190,13 @@ class Graph(object):
         c.executemany(query, tuples)
         self.commit()
         
+        c.execute("CREATE INDEX index_weights ON {0}(node1, node2) ".format(self.graph_weights))
+        self.commit()
         #c.execute("DROP TABLE {0}".format(self.graph_edges))
         #c.execute("DROP TABLE {0}".format(self.temp_time_series))
         #self.commit()     
         self.close()
-
+    
 
     def createFilteredView(self, filter_bottom_perc=10, filter_top_number=23):
         """ Filters 10 percents of edges from the bottom and filters exactly 23 nodes from the top. """
@@ -207,7 +213,9 @@ class Graph(object):
 
         #create view of node frequencies discarding top k% and bottom k%
         c.execute(
-            "CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ((SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"
+            "CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ("\
+            "(SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) "\
+            "GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"
             .format(self.filtered_nodes_view, self.graph_weights, bottom_irrelevant, total - filter_top_number))
         self.commit()
 
