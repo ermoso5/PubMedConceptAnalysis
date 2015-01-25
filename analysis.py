@@ -225,7 +225,7 @@ class Analysis:
                 print("There is no path between the two nodes.")
             except KeyError as Error_msg:
                 print(Error_msg)
-
+            
     def test_best_optimistic_function(self,list_couples):#[[565, 575], [1215, 245], [1740, 245]]
         #return best heuristic, the one with min error rate
         #check all nodes in the graph:
@@ -235,13 +235,16 @@ class Analysis:
                 found = self.check_id_in_graph(i)
                 if not found:
                     return False
-
         nb_opt_cosine_error = 0
         nb_opt_kl_error = 0
         for couple in list_couples:
             print("optimistic testing {0}".format(couple))
-            real_dist_cos = nx.astar_path_length(self.nxG, int(couple[0]), int(couple[1]), heuristic=self.heuristicFunctionCosine)
-            real_dist_kl = nx.astar_path_length(self.nxG, int(couple[0]), int(couple[1]), heuristic=self.heuristicFunctionKl)
+            #real_dist_cos = nx.astar_path_length(self.nxG, int(couple[0]), int(couple[1]), heuristic=self.heuristicFunctionCosine)
+            #real_dist_kl = nx.astar_path_length(self.nxG, int(couple[0]), int(couple[1]), heuristic=self.heuristicFunctionKl)
+            path_cosine_dis, real_dist_cos = self.a_star(int(couple[0]), int(couple[1]), distance = 'cosine')
+            path_kl_dis, real_dist_kl = self.a_star(int(couple[0]), int(couple[1]), distance = 'kl')
+            print("path cosine : {0} -> distance = {1}".format(path_cosine_dis, real_dist_kl))
+            print("path kl : {0} -> distance = {1}".format(path_kl_dis, real_dist_kl))
             cosine_dist = self.heuristicFunctionCosine(int(couple[0]), int(couple[1]))
             kl_dist = self.heuristicFunctionKl(int(couple[0]), int(couple[1]))
             if cosine_dist > real_dist_cos:
