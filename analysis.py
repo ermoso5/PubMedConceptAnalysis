@@ -12,7 +12,7 @@ class Analysis:
 
     def __init__(self, graph):
         self.graph = graph
-        self.nxG = create_networkx_graph()
+        self.nxG = self.create_networkx_graph()
         print("Bidirected normalized graph created in memory!")
     
     
