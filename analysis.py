@@ -7,7 +7,7 @@ from scipy.spatial.distance import cosine
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-__author__ = ["Falitokiniaina Rabearison", "Zara Alaverdyan", "Marcello Benedetti"]
+__author__ = ["Marcello Benedetti", "Falitokiniaina Rabearison", "Zara Alaverdyan"]
 
 DEBUG = False
 
@@ -157,9 +157,7 @@ class Analysis:
 
     def heuristicFunctionKl(self, concept1, concept2):
         dist = self.timeSeriesDistance(concept1, concept2, type='kl')
-        #print(concept1, " ", concept2, " ", dist)
         return dist
-        #return self.timeSeriesDistance(concept1, concept2, type='kl')
 
 
     def print_path(self,id_concepts_path_tab):
@@ -223,9 +221,6 @@ class Analysis:
                 print("\nReal Path:")
                 print(real_dist)
                 
-                #IndexError: list index out of range -> the concept is not in the graph
-                #networkx.exception.NetworkXNoPath: Node 3 not reachable from 9
-                
             except IndexError:
                 if concept == 1:
                     print("Source '{0}' is not in the initial graph.".format(concept1_source))
@@ -237,7 +232,8 @@ class Analysis:
                 print(Error_msg)
 
 
-    def test_best_optimistic_function(self, listNodes):#[[565, 575], [1215, 245], [1740, 245]]
+    #TO FIX
+    def test_best_optimistic_function(self, listNodes):
         #return best heuristic, the one with min error rate
         #check all nodes in the graph:
         found = False
@@ -249,11 +245,7 @@ class Analysis:
         nb_opt_cosine_error = 0
         nb_opt_kl_error = 0
         for couple in itertools.combinations(listNodes,2):
-            #real_dist_cos = nx.astar_path_length(self.nxG, int(couple[0]), int(couple[1]), heuristic=self.heuristicFunctionCosine)
-            #real_dist_kl = nx.astar_path_length(self.nxG, int(couple[0]), int(couple[1]), heuristic=self.heuristicFunctionKl)
             real_dist = nx.shortest_path_length(self.nxG, int(couple[0]), int(couple[1]), weight='weight')
-            #path_cosine_dis, real_dist_cos = self.a_star(int(couple[0]), int(couple[1]), distance = 'cosine')
-            #path_kl_dis, real_dist_kl = self.a_star(int(couple[0]), int(couple[1]), distance = 'kl')
             print("path cosine : {0} -> distance = {1}".format(path_cosine_dis, real_dist))
             print("path kl : {0} -> distance = {1}".format(path_kl_dis, real_dist))
             cosine_dist = self.heuristicFunctionCosine(int(couple[0]), int(couple[1]))
