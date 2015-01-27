@@ -164,11 +164,11 @@ class Graph(object):
 
     def finalize(self, filter_top):
         """ Aggregate info into weight table and time series table."""
-        #self.finalizeWeights()
-        #print("> nodes finalized")
+        self.finalizeWeights()
+        print("> nodes finalized")
         
-        #self.finalizeTimeSeries()
-        #print("> time series finalized")
+        self.finalizeTimeSeries()
+        print("> time series finalized")
         
         self.connect()
         c = self.cursor()
@@ -192,9 +192,6 @@ class Graph(object):
         self.close()
         print("> filters applied")
       
-        #for i in delete_nodes:
-        #    c.execute("DELETE FROM nlp_weights WHERE node1={0}".format(i))
-        #    c.execute("DELETE FROM nlp_weights WHERE node2={0}".format(i))
 
      
     def finalizeWeights(self):
@@ -260,21 +257,14 @@ class Graph(object):
         query = "DELETE FROM {0}".format(self.bigraph_norm)
         c.execute(query)
         self.commit()
-        #result = c.execute("SELECT * FROM ( SELECT node1, sum(weight) w FROM {0} GROUP BY node1 ) WHERE w BETWEEN 5 AND 1000 ".format(self.graph_weights))
-        #outweights = dict(result.fetchall())
         edge = c.execute("""SELECT a.node1, a.node2, a.weight*1.0/b.w 
                             FROM {0} a, 
                                  ( SELECT node1, sum(weight) w FROM {0} GROUP BY node1 ) b
                             WHERE a.node1=b.node1 AND b.w BETWEEN 5 AND 500 """.format(self.graph_weights)).fetchone()
         tuples = [] 
         while edge is not None:
-            #if outweights.get(edge[0]):
-            #    norm_weight1 = edge[2] / float(outweights.get(edge[0]))
-            #    tuples.append((edge[0], edge[1], norm_weight1))
             tuples.append(edge)
             edge = c.fetchone()
-            #else:
-            #    print("Error with ", edge[0], " - ", edge[1])
         query = "INSERT INTO {0} VALUES (?,?,?) ".format(self.bigraph_norm)
         c.executemany(query, tuples)
         self.commit()

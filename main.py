@@ -3,7 +3,7 @@ import time
 from graph import Graph
 from analysis import Analysis
 
-def main(tests=False):
+def main(tests=True):
 
     g = Graph(graph_name="nlp")
     if not g:

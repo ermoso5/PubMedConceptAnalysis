@@ -232,7 +232,7 @@ class Analysis:
                 print(Error_msg)
 
 
-    #TO FIX
+    ###TO FIX
     def test_best_optimistic_function(self, listNodes):
         #return best heuristic, the one with min error rate
         #check all nodes in the graph:
@@ -262,7 +262,8 @@ class Analysis:
             return "cosine"
         else:
             return "kl"
-
+    ###
+    
 
     def check_id_in_graph(self,id):
         found = True
