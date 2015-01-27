@@ -19,8 +19,7 @@ def main(parsing=False, processing=False, finalize=True):
     if parsing:
         start = time.process_time()
         par = Parser(outputdir="corpus")  
-        #par.splitMedline(filename="verybigmed.txt") #verybigmed.txt
-        par.splitMedline(filename="pubmed_result.txt") #verybigmed.txt
+        par.splitMedline(filename="pubmed_result.txt")
         print("Parsing done in {0}s".format(time.process_time()-start))
         
         
@@ -41,8 +40,7 @@ def main(parsing=False, processing=False, finalize=True):
     #STEP 3: finalization
     if finalize:
         start = time.process_time()
-        g.compressTables()
-        g.createFilteredView(filter_bottom_perc=10, filter_top_number=23)
+        #g.finalize(filter_top=150)
         g.normalizeWeights()
         print("Finalization done in {0}s".format(time.process_time()-start))
 

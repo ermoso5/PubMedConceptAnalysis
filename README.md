@@ -9,7 +9,9 @@ Required packages:
   - python 3.4.0
   - nltk 3.0.0
   - networkx
+  - numpy
   - scipy
+  - matplotlib
   - pyner
   - gensim
 

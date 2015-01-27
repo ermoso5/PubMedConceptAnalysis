@@ -3,7 +3,7 @@ import sqlite3
 import math
 
 
-__author__ = ["Marcello Benedetti", "Zara Alaverdyan", "Falitokiniaina Rabearison"]
+__author__ = ["Marcello Benedetti", "Zara Alaverdyan"]
 __status__ = "Prototype"
 
 DEBUG = False
@@ -19,8 +19,6 @@ class Graph(object):
         self.graph_weights = graph_name + "_weights"
         self.temp_time_series = graph_name + "_temp_time_series"
         self.time_series = graph_name + "_time_series"
-        self.filtered_nodes_view = graph_name + "_filtered_nodes_view"
-        self.filtered_edges_view = graph_name + "_filtered_edges_view"
         self.bigraph_norm = graph_name + "_bi_norm"
 
         self.dictionary = {}
@@ -61,14 +59,14 @@ class Graph(object):
 
             self.conn.commit()
 
-        else:
-            result = c.execute("SELECT term, id FROM {0}".format(self.graph_nodes))
-            self.dictionary = dict(result.fetchall())
-            if self.dictionary:
-                self.last_uid = max(self.dictionary.values())
-            else:
-                self.last_uid = 0
-            print("last assigned Unique Identifier: {0}".format(self.last_uid))
+        #else:
+        #    result = c.execute("SELECT term, id FROM {0}".format(self.graph_nodes))
+        #    self.dictionary = dict(result.fetchall())
+        #    if self.dictionary:
+        #        self.last_uid = max(self.dictionary.values())
+        #    else:
+        #        self.last_uid = 0
+        #    print("last assigned Unique Identifier: {0}".format(self.last_uid))
 
         self.close()
 
@@ -92,7 +90,11 @@ class Graph(object):
     def sendQuery(self, query):
         self.connect()
         c = self.cursor()
-        result = c.execute(query).fetchall()
+        try:
+            result = c.execute(query).fetchall()
+        except:
+            print("Query error!")
+            return []
         self.close()
         return result
 
@@ -160,95 +162,119 @@ class Graph(object):
         return row_count  # return number of occurrences
 
 
-    def compressTables(self):
+    def finalize(self, filter_top):
         """ Aggregate info into weight table and time series table."""
+        #self.finalizeWeights()
+        #print("> nodes finalized")
+        
+        #self.finalizeTimeSeries()
+        #print("> time series finalized")
+        
         self.connect()
         c = self.cursor()
-        tuples = []
+        query = "SELECT node1, SUM(weight) w FROM {0} GROUP BY node1 ORDER BY w DESC LIMIT 0, {1} "\
+                .format(self.graph_weights, filter_top)
+        delete_nodes = [x[0] for x in c.execute(query).fetchall()]
+        query = "SELECT tmp.node1 FROM ( SELECT node1, SUM(weight) w FROM {0} GROUP BY node1 ) tmp WHERE tmp.w<2 "\
+                .format(self.graph_weights)
+        delete_nodes = delete_nodes + [x[0] for x in c.execute(query).fetchall()]
+        print("> irrelevant nodes selected")
+        
+        i = 0                
+        for dn in delete_nodes:
+            c.execute("DELETE FROM {0} WHERE node1={1}".format(self.graph_weights, dn))
+            c.execute("DELETE FROM {0} WHERE node2={1}".format(self.graph_weights, dn))
+            c.execute("DELETE FROM {0} WHERE id={1}".format(self.time_series, dn))
+            i+=0
+            if i % 1000 == 0:
+                self.commit()
+        self.commit()
+        self.close()
+        print("> filters applied")
+      
+        #for i in delete_nodes:
+        #    c.execute("DELETE FROM nlp_weights WHERE node1={0}".format(i))
+        #    c.execute("DELETE FROM nlp_weights WHERE node2={0}".format(i))
+
+     
+    def finalizeWeights(self):
+        self.connect()
+        c = self.cursor()
+        
         query = "DELETE FROM {0}".format(self.graph_weights)
         c.execute(query)
-        query = "DROP INDEX IF EXISTS index_weights;"
-        c.execute(query)
-        self.commit()
+        self.commit() 
         
-        query = "SELECT node1, node2, COUNT() FROM {0} GROUP BY node1, node2 ".format(self.graph_edges)
-        result = c.execute(query)
-        for row in result:
-            tuples.append(row)
-        query = "INSERT INTO {0} VALUES (?,?,?) ".format(self.graph_weights)
-        c.executemany(query, tuples)
-        self.commit()
-
-        tuples = []
-        query = "DELETE FROM {0}".format(self.time_series)
-        c.execute(query)
-        query = "SELECT id, year, COUNT() FROM {0} GROUP BY id, year ".format(self.temp_time_series)
-        result = c.execute(query)
-        for row in result:
-            tuples.append(row)
-        query = "INSERT INTO {0} VALUES (?,?,?) ".format(self.time_series)
-        c.executemany(query, tuples)
-        self.commit()
+        query = "DROP INDEX IF EXISTS index_weights"
+        c.execute(query)       
+        self.commit() 
         
-        c.execute("CREATE INDEX index_weights ON {0}(node1, node2) ".format(self.graph_weights))
+        query = """SELECT a, b, SUM(s) weight FROM ( 
+                   SELECT node1 a, node2 b, COUNT() s FROM {0} GROUP BY a, b 
+                   UNION SELECT node2 a, node1 b, COUNT() s FROM {0} GROUP BY a, b )
+                   GROUP BY a, b """.format(self.graph_edges)
+        result = c.execute(query).fetchall()
+        i = 0
+        for row in result:
+            c.execute("INSERT INTO {0} VALUES (?,?,?) ".format(self.graph_weights), row)
+            i+=1
+            if i % 1000 == 0:
+                self.commit()
         self.commit()
-        #c.execute("DROP TABLE {0}".format(self.graph_edges))
-        #c.execute("DROP TABLE {0}".format(self.temp_time_series))
-        #self.commit()     
+        c.execute("CREATE INDEX index_weights ON {0}(node1) ".format(self.graph_weights))
+        self.commit()
         self.close()
-    
 
-    def createFilteredView(self, filter_bottom_perc=10, filter_top_number=23):
-        """ Filters 10 percents of edges from the bottom and filters exactly 23 nodes from the top. """
+    
+    def finalizeTimeSeries(self):
         self.connect()
         c = self.cursor()
+       
+        query = "DELETE FROM {0}".format(self.time_series)
+        c.execute(query)
+        self.commit()
         
-        # drop the view if exists
-        c.execute("DROP VIEW IF EXISTS {}".format(self.filtered_nodes_view))
-        c.execute("DROP VIEW IF EXISTS {}".format(self.filtered_edges_view))
+        query = "DROP INDEX IF EXISTS index_timeseries"
+        c.execute(query)       
+        self.commit() 
+               
+        query = "SELECT id, year, COUNT() FROM {0} GROUP BY id, year"\
+                .format(self.temp_time_series)
+        result = c.execute(query).fetchall()
+        i = 0
+        for row in result:
+            c.execute("INSERT INTO {0} VALUES (?,?,?) ".format(self.time_series), row)
+            i+=1
+            if i % 1000 == 0:
+                self.commit()
         self.commit()
-
-        total = len(self.dictionary) #c.execute("SELECT count(*) FROM {0}".format(self.graph_nodes))
-        bottom_irrelevant = int(total * filter_bottom_perc / 100)
-
-        #create view of node frequencies discarding top k% and bottom k%
-        c.execute(
-            "CREATE VIEW {0} AS SELECT node, sum(weight) as weight FROM ("\
-            "(SELECT node1 as node, sum(weight) as weight FROM {1} GROUP BY node1 UNION SELECT node2 as node, sum(weight) as weight FROM {1} GROUP BY node2)) "\
-            "GROUP BY node ORDER BY weight DESC LIMIT {2}, {3}"
-            .format(self.filtered_nodes_view, self.graph_weights, bottom_irrelevant, total - filter_top_number))
-        self.commit()
-
-        c.execute(
-            "CREATE VIEW {0} AS SELECT n1.node, n2.node, w.weight FROM {1} w JOIN {2} n1 ON w.node1 = n1.node JOIN {2} n2 ON w.node2 = n2.node"
-            .format(self.filtered_edges_view, self.graph_weights, self.filtered_nodes_view))
-        self.commit()
-        ## "CREATE VIEW {0} AS SELECT DISTINCr2 =T * FROM (SELECT n1.node1, n1.node2, w.weight FROM {1} w JOIN {2} n1 ON w.node1 = n1.node UNION SELECT n2.node1, n2.node2, w.weight FROM {1} w JOIN {2} n2 on w.node2 = n2.node)".format(
-            
-        countBefore = c.execute("SELECT COUNT(*) FROM {0}".format(self.graph_weights)).fetchone()[0]
-        countAfter = c.execute("SELECT COUNT(*) FROM {0}".format(self.filtered_edges_view)).fetchone()[0]
-
+        c.execute("CREATE INDEX index_timeseries ON {0}(id) ".format(self.time_series))
         self.commit()
         self.close()
-        print(str(bottom_irrelevant) + " nodes are not relevant")
-        print(str(countBefore - countAfter) + " edges are not relevant")
+        
 
     
     def normalizeWeights(self):
         self.connect()
         c = self.cursor()
-        result = c.execute("SELECT node, weight FROM {0}".format(self.filtered_nodes_view))
-        outweights = dict(result.fetchall())
-        edges = c.execute("SELECT * FROM {0}".format(self.filtered_edges_view)).fetchall()
+        query = "DELETE FROM {0}".format(self.bigraph_norm)
+        c.execute(query)
+        self.commit()
+        #result = c.execute("SELECT * FROM ( SELECT node1, sum(weight) w FROM {0} GROUP BY node1 ) WHERE w BETWEEN 5 AND 1000 ".format(self.graph_weights))
+        #outweights = dict(result.fetchall())
+        edge = c.execute("""SELECT a.node1, a.node2, a.weight*1.0/b.w 
+                            FROM {0} a, 
+                                 ( SELECT node1, sum(weight) w FROM {0} GROUP BY node1 ) b
+                            WHERE a.node1=b.node1 AND b.w BETWEEN 5 AND 500 """.format(self.graph_weights)).fetchone()
         tuples = [] 
-        for edge in edges:
-            if edge[0] in outweights and edge[1] in outweights:
-                norm_weight1 = edge[2] / float(outweights[edge[0]])
-                norm_weight2 = edge[2] / float(outweights[edge[1]])
-                tuples.append((edge[0], edge[1], norm_weight1))
-                tuples.append((edge[1], edge[0], norm_weight2))
-            else:
-                print("Error with ", edge[0], " - ", edge[1])
+        while edge is not None:
+            #if outweights.get(edge[0]):
+            #    norm_weight1 = edge[2] / float(outweights.get(edge[0]))
+            #    tuples.append((edge[0], edge[1], norm_weight1))
+            tuples.append(edge)
+            edge = c.fetchone()
+            #else:
+            #    print("Error with ", edge[0], " - ", edge[1])
         query = "INSERT INTO {0} VALUES (?,?,?) ".format(self.bigraph_norm)
         c.executemany(query, tuples)
         self.commit()
@@ -277,7 +303,4 @@ class Graph(object):
         for row in result:
             print(row)
         self.close()
-        
-        
-# if __name__=="__main__":
-#    debug()
+
