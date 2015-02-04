@@ -244,16 +244,26 @@ class Analysis:
 
         nb_opt_cosine_error = 0
         nb_opt_kl_error = 0
+        i = 0
         for couple in itertools.combinations(listNodes,2):
+            print("Couple {0}: ".format(i))
+            print(couple)
+            path_cosine_dis, length_cosine_dist = self.a_star(couple[0], couple[1], distance = 'cosine')
+            path_kl_dis, length_kl_dis = self.a_star(couple[0], couple[1], distance = 'kl')
             real_dist = nx.shortest_path_length(self.nxG, int(couple[0]), int(couple[1]), weight='weight')
-            print("path cosine : {0} -> distance = {1}".format(path_cosine_dis, real_dist))
-            print("path kl : {0} -> distance = {1}".format(path_kl_dis, real_dist))
+            print("path cosine : {0} \n\t"
+                  "-> distance with cosine heuristic = {1}\n\t"
+                  "-> real shortest distance = {2}".format(path_cosine_dis, length_cosine_dist, real_dist))
+            print("path kl : {0} \n\t"
+                  "-> distance with kl heuristic = {1}\n\t"
+                  "-> real shortest distance = {2}".format(path_kl_dis, length_kl_dis, real_dist))
             cosine_dist = self.heuristicFunctionCosine(int(couple[0]), int(couple[1]))
             kl_dist = self.heuristicFunctionKl(int(couple[0]), int(couple[1]))
             if cosine_dist > real_dist:
                 nb_opt_cosine_error += 1
             if kl_dist > real_dist:
                 nb_opt_kl_error +=1
+            i+=1
         error_rate_cosine = nb_opt_cosine_error/len(listNodes)
         error_rate_KL = nb_opt_kl_error/len(listNodes)
         print("COSINE heuristic ERROR : {0}".format(error_rate_cosine))
