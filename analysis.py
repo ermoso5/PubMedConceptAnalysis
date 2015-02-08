@@ -26,7 +26,7 @@ class Analysis:
         query = "SELECT * FROM {0}".format(self.graph.bigraph_norm)
         result = self.graph.sendQuery(query)
         for row in result:
-            row = (int(row[0]), int(row[1]), 1-float(row[2]))  #TEST HERE
+            row = (int(row[0]), int(row[1]), 1-float(row[2]))  #3rd ELEMENT MUST BE 1-WEIGHT!!
             weighted_oriented_edges.append(row)
         nxG = nx.DiGraph()
         nxG.add_weighted_edges_from(weighted_oriented_edges)
@@ -195,31 +195,32 @@ class Analysis:
                 if not r2 or r2[0][0]==0:
                     raise KeyError("Target '{0}' is not in the graph or doesn't have incoming edges.".format(concept2_target))
                 #END make sure source and taget exist to avoid searching the whole graph
-
-                start = time.process_time()
-                path_cosine_dis, length_cosine_dist = self.a_star(source, target, distance = 'cosine')
-                print("Cosine done in {0}s".format(time.process_time()-start))
                 
-                start = time.process_time()
-                path_kl_dis, length_kl_dis = self.a_star(source, target, distance = 'kl')
-                print("KL done in {0}s".format(time.process_time()-start))
-                
-                start = time.process_time()
-                real_dist = nx.shortest_path(self.nxG, source, target, weight='weight')
-                print("Shortest path done in {0}s".format(time.process_time()-start))
-                
-                print("* * * PATHS * * * ")
+                print("\n* * * PATHS * * * ")
                 
                 print("\nHeuristic: Cosine Distance")
+                start = time.perf_counter()
+                path_cosine_dis, length_cosine_dist = self.a_star(source, target, distance = 'cosine')
+                print("Cosine done in {0}s".format(time.perf_counter()-start))
                 print(self.print_path(path_cosine_dis))
                 print('Total length:{}'.format(length_cosine_dist))
 
                 print("\nHeuristic: KL Divergence:")
+                start = time.perf_counter()
+                path_kl_dis, length_kl_dis = self.a_star(source, target, distance = 'kl')
+                print("KL done in {0}s".format(time.perf_counter()-start))
                 print(self.print_path(path_kl_dis))
                 print('Total length:{}'.format(length_kl_dis))
                 
-                print("\nReal Path:")
-                print(real_dist)
+                print("\nExact Shortest Path:")
+                start = time.perf_counter()
+                shortest_path = nx.shortest_path(self.nxG, source, target, weight='weight')
+                print("Shortest path found in {0}s".format(time.perf_counter()-start))
+                print(self.print_path(shortest_path))
+                shortest_dist = 0
+                for i in range(1, len(shortest_path)):
+                    shortest_dist += self.nxG.get_edge_data(shortest_path[i-1],shortest_path[i]).get('weight')
+                print('Total length:{}'.format(shortest_dist))
                 
             except IndexError:
                 if concept == 1:
