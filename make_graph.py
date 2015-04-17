@@ -6,7 +6,7 @@ from graph import Graph
 
 DEBUG = True
 
-def main(parsing=False, processing=False, finalize=True):
+def main(parsing=True, processing=True, finalize=True):
        
     """
     Download dataset in MEDLINE format here:
@@ -21,7 +21,7 @@ def main(parsing=False, processing=False, finalize=True):
     if parsing:
         start = time.process_time()
         par = Parser(outputdir="corpus")  
-        par.splitMedline(filename="big_medline.txt")  #  pubmed_result.txt"
+        par.splitMedline(filename="medline.txt")
         print("Parsing done in {0}s".format(time.process_time()-start))
         
         
@@ -32,7 +32,7 @@ def main(parsing=False, processing=False, finalize=True):
         pp.folderToGraph(root="corpus",
                          graph=g,               #pass the graph object
                          target_folder=None,    #don't store intermediate files #"processed"
-                         ner=True,
+                         ner=True,              #Named Entity Recognition
                          lemmatize=True,        #False,
                          stemming=None,         #'heavy', 
                          min_word_length=5)
