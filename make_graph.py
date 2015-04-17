@@ -6,7 +6,7 @@ from graph import Graph
 
 DEBUG = True
 
-def main(parsing=False, processing=False, finalize=False):
+def main(parsing=False, processing=False, finalize=True):
        
     """
     Download dataset in MEDLINE format here:
@@ -15,13 +15,13 @@ def main(parsing=False, processing=False, finalize=False):
     Warning: Processing and Finalization takes quite some time!
     """  
        
-    g = Graph(graph_name="nlp")
+    g = Graph(graph_name="nlp")  #"nlp"
        
     #STEP 1: parsing
     if parsing:
         start = time.process_time()
         par = Parser(outputdir="corpus")  
-        par.splitMedline(filename="pubmed_result.txt")
+        par.splitMedline(filename="big_medline.txt")  #  pubmed_result.txt"
         print("Parsing done in {0}s".format(time.process_time()-start))
         
         
@@ -42,7 +42,7 @@ def main(parsing=False, processing=False, finalize=False):
     #STEP 3: finalization
     if finalize:
         start = time.process_time()
-        g.finalize(filter_top=150)
+        g.finalize(filter_top=1000) #1500
         g.normalizeWeights()
         print("Finalization done in {0}s".format(time.process_time()-start))
 

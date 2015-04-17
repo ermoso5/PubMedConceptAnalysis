@@ -7,7 +7,7 @@ __author__ = ["Marcello Benedetti", "Zara Alaverdyan"]
 __status__ = "Prototype"
 
 DEBUG = False
-SQL_DB = "test_graph.db"
+SQL_DB = "test_graph.db" #"test_graph.db"
 
 
 class Graph(object):
@@ -170,14 +170,12 @@ class Graph(object):
         self.finalizeTimeSeries()
         print("> time series finalized")
         
+        #tricky part
         self.connect()
         c = self.cursor()
-        query = "SELECT node1, SUM(weight) w FROM {0} GROUP BY node1 ORDER BY w DESC LIMIT 0, {1} "\
-                .format(self.graph_weights, filter_top)
+        query = "SELECT id, SUM(frequency) s FROM {0} GROUP BY id ORDER BY s DESC LIMIT 0, {1} "\
+                .format(self.time_series, filter_top)
         delete_nodes = [x[0] for x in c.execute(query).fetchall()]
-        query = "SELECT tmp.node1 FROM ( SELECT node1, SUM(weight) w FROM {0} GROUP BY node1 ) tmp WHERE tmp.w<2 "\
-                .format(self.graph_weights)
-        delete_nodes = delete_nodes + [x[0] for x in c.execute(query).fetchall()]
         print("> irrelevant nodes selected")
         
         i = 0                
@@ -186,7 +184,7 @@ class Graph(object):
             c.execute("DELETE FROM {0} WHERE node2={1}".format(self.graph_weights, dn))
             c.execute("DELETE FROM {0} WHERE id={1}".format(self.time_series, dn))
             i+=0
-            if i % 1000 == 0:
+            if i % 10000 == 0:
                 self.commit()
         self.commit()
         self.close()
@@ -206,16 +204,18 @@ class Graph(object):
         c.execute(query)       
         self.commit() 
         
-        query = """SELECT a, b, SUM(s) weight FROM ( 
-                   SELECT node1 a, node2 b, COUNT() s FROM {0} GROUP BY a, b 
-                   UNION SELECT node2 a, node1 b, COUNT() s FROM {0} GROUP BY a, b )
-                   GROUP BY a, b """.format(self.graph_edges)
+        query = """SELECT a, b, weight w FROM (
+                    SELECT a, b, SUM(s) weight FROM ( 
+                     SELECT node1 a, node2 b, COUNT() s FROM {0} GROUP BY a, b 
+                     UNION SELECT node2 a, node1 b, COUNT() s FROM {0} GROUP BY a, b
+                    ) GROUP BY a, b 
+                   ) WHERE weight>1 """.format(self.graph_edges)
         result = c.execute(query).fetchall()
         i = 0
         for row in result:
-            c.execute("INSERT INTO {0} VALUES (?,?,?) ".format(self.graph_weights), row)
+            c.execute("INSERT INTO {0} VALUES (?,?,?) ".format(self.graph_weights), (row[0],row[1],row[2]))
             i+=1
-            if i % 1000 == 0:
+            if i % 10000 == 0:
                 self.commit()
         self.commit()
         c.execute("CREATE INDEX index_weights ON {0}(node1) ".format(self.graph_weights))
@@ -242,7 +242,7 @@ class Graph(object):
         for row in result:
             c.execute("INSERT INTO {0} VALUES (?,?,?) ".format(self.time_series), row)
             i+=1
-            if i % 1000 == 0:
+            if i % 10000 == 0:
                 self.commit()
         self.commit()
         c.execute("CREATE INDEX index_timeseries ON {0}(id) ".format(self.time_series))
@@ -257,10 +257,10 @@ class Graph(object):
         query = "DELETE FROM {0}".format(self.bigraph_norm)
         c.execute(query)
         self.commit()
-        edge = c.execute("""SELECT a.node1, a.node2, a.weight*1.0/b.w 
-                            FROM {0} a, 
-                                 ( SELECT node1, sum(weight) w FROM {0} GROUP BY node1 ) b
-                            WHERE a.node1=b.node1 AND b.w BETWEEN 5 AND 500 """.format(self.graph_weights)).fetchone()
+        edge = c.execute("""SELECT a.node1, a.node2, 1.0-a.weight*1.0/b.w 
+                            FROM {0} a,   
+                                 ( SELECT id, sum(frequency) w FROM {1} GROUP BY id ) b
+                            WHERE a.node1=b.id""".format(self.graph_weights, self.time_series)).fetchone()
         tuples = [] 
         while edge is not None:
             tuples.append(edge)

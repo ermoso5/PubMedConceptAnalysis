@@ -23,15 +23,15 @@ class Analysis:
     
     def create_networkx_graph(self):
         weighted_oriented_edges = []
-        query = "SELECT * FROM {0}".format(self.graph.bigraph_norm)
+        query = "SELECT * FROM {0} WHERE weight!=0".format(self.graph.bigraph_norm)
         result = self.graph.sendQuery(query)
         for row in result:
-            row = (int(row[0]), int(row[1]), 1-float(row[2]))  #3rd ELEMENT MUST BE 1-WEIGHT!!
+            row = (int(row[0]), int(row[1]), float(row[2]))
             weighted_oriented_edges.append(row)
         nxG = nx.DiGraph()
         nxG.add_weighted_edges_from(weighted_oriented_edges)
         return nxG
-    
+
     
     def getIdFromConcept(self, concept):
         query = "SELECT id FROM {0} WHERE term LIKE '{1}'" \
@@ -135,7 +135,7 @@ class Analysis:
     def getStrongEdges(self, n):
         query = """SELECT n1.term, n2.term, b.weight 
                    FROM {0} b JOIN {1} n1 ON b.node1=n1.id JOIN {1} n2 ON b.node2=n2.id  
-                   ORDER BY weight DESC 
+                   ORDER BY weight ASC 
                    LIMIT {2}""" \
                 .format(self.graph.bigraph_norm, self.graph.graph_nodes, n)
         return self.graph.sendQuery(query)
